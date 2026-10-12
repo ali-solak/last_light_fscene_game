@@ -1,0 +1,48 @@
+// A mirror's face: a true planar reflection of the island (a
+// PlanarReflectorComponent on the surface renders it), falling back to a
+// sky gradient where no capture is bound; the polished glass catches a
+// bright glint sweep while it holds the beam's light (glint, charge).
+material {
+  name: "mirror",
+  shading_model: lit,
+  blending: opaque,
+  culling: none,
+  engine_inputs: [ planar_reflection ],
+  parameters: [
+    { type: float, name: time, default: 0.0 },
+    { type: float, name: glint, hint: range(0, 1, 0.01), default: 0.0 },
+    { type: float, name: charge, hint: range(0, 1, 0.01), default: 0.0 },
+    { type: float, name: dawn, hint: range(0, 1, 0.01), default: 0.0 },
+    { type: vec3, name: night_sky, default: [0.05, 0.08, 0.16] },
+    { type: vec3, name: dawn_sky, default: [0.9, 0.6, 0.45] },
+    { type: vec3, name: glint_color, default: [1.8, 1.4, 0.9] },
+    { type: vec3, name: tint, default: [0.86, 0.9, 0.96] },
+  ],
+}
+fragment {
+  void Surface(inout MaterialInputs material) {
+    vec4 reflection = GetPlanarReflection();
+    vec3 n = normalize(GetWorldNormal());
+    vec3 v = normalize(GetViewDirection());
+    vec3 r = reflect(-v, n);
+    float up = clamp(r.y * 0.5 + 0.5, 0.0, 1.0);
+    vec3 sky = mix(material_params.night_sky, material_params.dawn_sky,
+                   material_params.dawn);
+    vec3 fake = mix(sky * 0.35, sky * 1.4, up);
+    vec3 mirrored = mix(fake, reflection.rgb, reflection.a) * material_params.tint;
+
+    // A diagonal glint band sweeping across the glass while it holds light,
+    // and the glass glowing with what it holds.
+    vec3 wp = GetWorldPosition();
+    float band = fract((wp.x + wp.y + wp.z) * 0.8 - material_params.time * 1.6);
+    float sweep = 1.0 - smoothstep(0.0, 0.12, abs(band - 0.5));
+    vec3 glow = material_params.glint_color *
+        (material_params.glint * (0.35 + sweep) + material_params.charge * 0.25);
+
+    material.base_color = vec4(material_params.tint, 1.0);
+    material.metallic = 1.0;
+    material.roughness = 1.0;
+    material.emissive = mirrored + glow;
+    PrepareMaterial(material);
+  }
+}

@@ -1,0 +1,36 @@
+// A burning puddle of lamp oil: bubbling flame that cools to char as its
+// heat (0..1 over its lifetime) runs out.
+material {
+  name: "burn",
+  shading_model: unlit,
+  blending: alpha,
+  culling: none,
+  depth_write: false,
+  parameters: [
+    { type: float, name: time, default: 0.0 },
+    { type: float, name: heat, hint: range(0, 1, 0.01), default: 1.0 },
+    { type: vec3, name: hot_color, default: [1.8, 0.7, 0.14] },
+    { type: vec3, name: char_color, default: [0.05, 0.04, 0.03] },
+  ],
+  varyings: [
+    { type: vec2, name: puddle_uv },
+  ],
+}
+vertex {
+  void Vertex(inout VertexInputs vertex) {
+    puddle_uv = vertex.position.xz / 0.55;
+  }
+}
+fragment {
+  #include <noise.glsl>
+
+  void Surface(inout MaterialInputs material) {
+    float r = length(puddle_uv);
+    float t = material_params.time;
+    float bubbles = NoiseSimplex3(vec3(puddle_uv * 5.0, t * 1.4), 83) * 0.5 + 0.5;
+    float flames = smoothstep(0.45, 0.85, bubbles) * material_params.heat;
+    vec3 color = mix(material_params.char_color, material_params.hot_color, flames);
+    float a = (1.0 - smoothstep(0.75, 1.0, r)) * (0.65 + 0.35 * material_params.heat);
+    material.base_color = vec4(color, a);
+  }
+}

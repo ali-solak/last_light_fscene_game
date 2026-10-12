@@ -1,0 +1,75 @@
+// Every crab's shell, claws and legs (shared by the whole horde): the
+// palette texture, a cold sea-glow rim and pulsing bioluminescent markings
+// so the horde reads (and menaces) in the dark, plus a hot red-orange glow
+// wherever the lighthouse beam passes over the crab. beam_a..e are the traced beam segments (start x,
+// start z, end x, end z), so the horde sizzles at no per-entity cost.
+material {
+  name: "crab_shell",
+  shading_model: lit,
+  blending: opaque,
+  culling: back,
+  parameters: [
+    { type: float, name: time, default: 0.0 },
+    { type: vec4, name: beam_a, default: [0, 0, 0, 0] },
+    { type: vec4, name: beam_b, default: [0, 0, 0, 0] },
+    { type: vec4, name: beam_c, default: [0, 0, 0, 0] },
+    { type: vec4, name: beam_d, default: [0, 0, 0, 0] },
+    { type: vec4, name: beam_e, default: [0, 0, 0, 0] },
+    { type: float, name: beam_width, hint: range(0, 4, 0.01), default: 1.2 },
+    { type: vec3, name: hot_color, default: [1.6, 0.4, 0.1] },
+    { type: vec3, name: rim_color, default: [0.10, 0.55, 0.50] },
+    { type: vec3, name: mark_color, default: [0.25, 1.6, 1.2] },
+    { type: float, name: dawn, hint: range(0, 1, 0.01), default: 0.0 },
+    { type: sampler2d, name: palette, hint: default_white },
+  ],
+  varyings: [
+    { type: vec3, name: local_pos },
+  ],
+}
+vertex {
+  void Vertex(inout VertexInputs vertex) {
+    local_pos = vertex.position;
+  }
+}
+fragment {
+  #include <noise.glsl>
+
+  float SegmentDistance(vec2 p, vec4 s) {
+    vec2 a = s.xy;
+    vec2 ab = s.zw - s.xy;
+    float len2 = dot(ab, ab);
+    if (len2 < 1e-4) return 1e4;
+    float t = clamp(dot(p - a, ab) / len2, 0.0, 1.0);
+    return distance(p, a + ab * t);
+  }
+
+  void Surface(inout MaterialInputs material) {
+    vec3 wp = GetWorldPosition();
+    vec3 base = SRGBToLinear(texture(palette, GetUV0()).rgb);
+    float d = min(min(SegmentDistance(wp.xz, material_params.beam_a),
+                      SegmentDistance(wp.xz, material_params.beam_b)),
+                  min(min(SegmentDistance(wp.xz, material_params.beam_c),
+                          SegmentDistance(wp.xz, material_params.beam_d)),
+                      SegmentDistance(wp.xz, material_params.beam_e)));
+    float heat = 1.0 - smoothstep(material_params.beam_width * 0.6,
+                                  material_params.beam_width, d);
+    float sizzle = 0.7 + 0.3 * NoiseSimplex3(wp * 6.0 + vec3(0.0, material_params.time * 4.0, 0.0), 29);
+    // Banded light: posterise the base a little for the storybook read.
+    base = floor(base * 6.0 + 0.5) / 6.0;
+    material.base_color = vec4(mix(base, base * 0.4, heat), 1.0);
+    // The night look: a cold rim and glowing markings that ride the shell
+    // (local space, so they stay put as the crab moves) and pulse.
+    vec3 n = normalize(GetWorldNormal());
+    vec3 v = normalize(GetViewDirection());
+    float rim = pow(1.0 - clamp(abs(dot(n, v)), 0.0, 1.0), 3.0);
+    float t = material_params.time;
+    float marks = smoothstep(0.62, 0.78, NoiseSimplex3(local_pos * 9.0, 41));
+    float pulse = 0.6 + 0.4 * sin(t * 2.3 + local_pos.x * 7.0 + local_pos.z * 5.0);
+    float night = 1.0 - material_params.dawn;
+    material.emissive = material_params.hot_color * heat * sizzle +
+        (material_params.rim_color * rim * 0.7 +
+         material_params.mark_color * marks * pulse * 0.5) * night * (1.0 - heat);
+    material.roughness = 0.7;
+    material.metallic = 0.0;
+  }
+}

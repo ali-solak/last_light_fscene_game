@@ -1,0 +1,40 @@
+// Warm emissive glass lit from within: a hot flame-coloured heart where
+// you look straight through it, deepening to smoky amber at the rim, that
+// breathes and flickers with the flame inside. The oil lamp's glass, the
+// lamp posts' lanterns, the lighthouse lens and the cottage window. `lit`
+// fades it to dark glass when a lamp is snuffed.
+material {
+  name: "lamp_glass",
+  shading_model: unlit,
+  blending: opaque,
+  culling: back,
+  parameters: [
+    { type: float, name: time, default: 0.0 },
+    { type: float, name: lit, hint: range(0, 1, 0.01), default: 1.0 },
+    { type: float, name: intensity, hint: range(0, 4, 0.01), default: 1.0 },
+    { type: vec3, name: warm_color, default: [1.3, 0.85, 0.4] },
+    { type: vec3, name: dark_color, default: [0.04, 0.05, 0.07] },
+  ],
+}
+fragment {
+  #include <noise.glsl>
+
+  void Surface(inout MaterialInputs material) {
+    float t = material_params.time;
+    // The flame: a slow breath and a quick, uneven flicker.
+    float flicker = 0.9 + 0.06 * sin(t * 2.3) +
+        0.06 * NoiseSimplex2(vec2(t * 7.0, 1.7), 31);
+    vec3 v = normalize(GetViewDirection());
+    vec3 n = normalize(GetWorldNormal());
+    float facing = abs(dot(n, v));
+    // Hot heart, smoky rim.
+    float heart = pow(facing, 2.5);
+    vec3 rim = material_params.warm_color * vec3(0.75, 0.42, 0.18);
+    vec3 hot = material_params.warm_color * vec3(1.05, 1.0, 0.95);
+    vec3 glow = mix(rim, hot, heart) * (0.45 + 0.75 * heart);
+    vec3 color = mix(material_params.dark_color,
+                     glow * material_params.intensity * flicker,
+                     material_params.lit);
+    material.base_color = vec4(color, 1.0);
+  }
+}

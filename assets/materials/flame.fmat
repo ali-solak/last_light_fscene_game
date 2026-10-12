@@ -1,0 +1,47 @@
+// A small flame: the oil lamp's flame and the flame cards (sizzle, smoke).
+// The vertex stage wobbles it; the fragment flickers from a white core to
+// an orange tip, and sputters when oil runs low.
+material {
+  name: "flame",
+  shading_model: unlit,
+  blending: additive,
+  culling: none,
+  depth_write: false,
+  parameters: [
+    { type: float, name: time, default: 0.0 },
+    { type: float, name: intensity, hint: range(0, 3, 0.01), default: 1.0 },
+    { type: float, name: sputter, hint: range(0, 1, 0.01), default: 0.0 },
+    { type: vec3, name: core_color, default: [1.5, 1.2, 0.6] },
+    { type: vec3, name: tip_color, default: [1.0, 0.35, 0.08] },
+  ],
+  varyings: [
+    { type: float, name: flame_h },
+  ],
+}
+vertex {
+  #include <noise.glsl>
+
+  void Vertex(inout VertexInputs vertex) {
+    float h = clamp(abs(vertex.position.y) / 0.6, 0.0, 1.0);
+    flame_h = h;
+    float t = material_params.time;
+    float sway = NoiseSimplex2(vec2(t * 3.1, vertex.world_position.x), 3) * 0.04;
+    vertex.world_position.x += sway * h;
+    vertex.world_position.z += sway * 0.6 * h;
+  }
+}
+fragment {
+  #include <noise.glsl>
+
+  void Surface(inout MaterialInputs material) {
+    float t = material_params.time;
+    float flick = 0.8 + 0.2 * NoiseSimplex2(vec2(t * 11.0, 1.7), 9);
+    float sputter = 1.0 - material_params.sputter *
+        step(0.3, NoiseSimplex2(vec2(t * 7.0, 4.0), 21) * 0.5 + 0.5);
+    vec3 color = mix(material_params.core_color, material_params.tip_color,
+                     smoothstep(0.1, 0.9, flame_h));
+    float a = (1.0 - smoothstep(0.7, 1.0, flame_h)) * flick * sputter *
+        material_params.intensity;
+    material.base_color = vec4(color * a, a);
+  }
+}

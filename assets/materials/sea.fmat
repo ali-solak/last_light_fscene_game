@@ -1,0 +1,74 @@
+// The night sea: posterised swell bands, vertex swell, a foam ring at the
+// shore, and the lighthouse beam sweeping across the water as a moving
+// bright streak. Unlit and banded to match the storybook look.
+material {
+  name: "sea",
+  shading_model: unlit,
+  blending: opaque,
+  culling: none,
+  parameters: [
+    { type: float, name: time, default: 0.0 },
+    { type: float, name: tide_offset, hint: range(-2, 2, 0.01), default: 0.0 },
+    // Beam on the water: origin x, origin z, yaw, intensity (0 = off).
+    { type: vec4, name: beam, default: [0, 0, 0, 0] },
+    { type: float, name: dawn, hint: range(0, 1, 0.01), default: 0.0 },
+    { type: float, name: wave_height, hint: range(0, 2, 0.01), default: 0.35 },
+    { type: float, name: wave_scale, hint: range(0.001, 0.5, 0.001), default: 0.06 },
+    { type: float, name: bands, hint: range(2, 12, 1), default: 5 },
+    { type: vec3, name: deep_color, default: [0.010, 0.030, 0.060] },
+    { type: vec3, name: swell_color, default: [0.030, 0.085, 0.140] },
+    { type: vec3, name: dawn_color, default: [0.20, 0.32, 0.42] },
+    { type: vec3, name: beam_color, default: [0.7, 0.5, 0.26] },
+    { type: vec3, name: foam_color, default: [0.55, 0.62, 0.70] },
+    { type: float, name: shore_radius, hint: range(10, 80, 0.5), default: 40.0 },
+  ],
+}
+vertex {
+  #include <noise.glsl>
+
+  void Vertex(inout VertexInputs vertex) {
+    vec2 p = vertex.world_position.xz * material_params.wave_scale;
+    float t = material_params.time;
+    float swell = NoiseSimplex2(p + vec2(t * 0.20, t * 0.13), 41);
+    float chop = NoiseSimplex2(p * 2.7 - vec2(t * 0.31, t * 0.07), 43) * 0.4;
+    vertex.world_position.y +=
+        (swell + chop) * material_params.wave_height + material_params.tide_offset;
+  }
+}
+fragment {
+  #include <noise.glsl>
+  precision highp float;
+
+  void Surface(inout MaterialInputs material) {
+    vec3 wp = GetWorldPosition();
+    vec2 p = wp.xz * (material_params.wave_scale * 2.0);
+    float t = material_params.time;
+    float swell = NoiseFbm2(p + vec2(t * 0.16, t * 0.11), 47, 3, 2.0, 0.5) * 0.5 + 0.5;
+    float steps = max(material_params.bands, 2.0);
+    float banded = floor(swell * steps) / (steps - 1.0);
+    vec3 night = mix(material_params.deep_color, material_params.swell_color, banded);
+    vec3 color = mix(night, material_params.dawn_color * (0.6 + 0.4 * banded),
+                     material_params.dawn);
+
+    // Foam ring where the water meets the island.
+    float r = length(wp.xz);
+    float shore = 1.0 - smoothstep(0.0, 6.0, abs(r - material_params.shore_radius));
+    float froth = step(0.55, NoiseSimplex2(wp.xz * 0.6 + vec2(t * 0.4, 0.0), 13) * 0.5 + 0.5);
+    color += material_params.foam_color * shore * froth * 0.35;
+
+    // The beam's streak across the water.
+    vec4 b = material_params.beam;
+    if (b.w > 0.0) {
+      vec2 dir = vec2(-sin(b.z), -cos(b.z));
+      vec2 rel = wp.xz - b.xy;
+      float along = dot(rel, dir);
+      float across = abs(rel.x * dir.y - rel.y * dir.x);
+      float width = 1.2 + along * 0.05;
+      float lit = step(0.0, along) * (1.0 - smoothstep(width * 0.6, width, across));
+      float fade = 1.0 - smoothstep(30.0, 140.0, along);
+      float glitter = 0.6 + 0.4 * step(0.5, swell);
+      color += material_params.beam_color * lit * fade * glitter * b.w * 0.6;
+    }
+    material.base_color = vec4(color, 1.0);
+  }
+}

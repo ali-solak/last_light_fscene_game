@@ -1,0 +1,70 @@
+name: last_light
+description: "Last Light: a lighthouse-keeper roguelite built on Scene-Dash v2 and flutter_scene."
+
+publish_to: 'none'
+
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.13.5
+  flutter: ">=3.47.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_scene: ^0.24.3
+  flutter_scene_rapier: ^0.5.2
+  hooks: ^2.2.0
+  scene_dash_v2: ^0.6.0
+
+  vector_math: ^2.4.3
+  flutter_scene_input: ^0.1.0
+
+  material_ui: ^1.6.0
+  cupertino_ui: ^1.1.2
+  shared_preferences: ^2.5.6
+
+
+# The gamepads Windows plugin crashes the game natively; no gamepad is read.
+dependency_overrides:
+  gamepads_windows:
+    path: third_party/gamepads_windows
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true
+  fonts:
+    - family: BarlowCondensed
+      fonts:
+        - asset: assets/fonts/BarlowCondensed-Regular.ttf
+          weight: 400
+        - asset: assets/fonts/BarlowCondensed-Medium.ttf
+          weight: 500
+        - asset: assets/fonts/BarlowCondensed-SemiBold.ttf
+          weight: 600
+        - asset: assets/fonts/BarlowCondensed-Bold.ttf
+          weight: 700
+  assets:
+    - assets/models/clips.json
+    - assets/models/environment/island.glb
+    - assets/fonts/
+    - flutter_scene_generated/
+    - path: flutter_scene_generated/metal_ios/
+      platforms:
+        - ios
+    - path: flutter_scene_generated/metal_desktop/
+      platforms:
+        - macos
+    - path: flutter_scene_generated/opengl_es_vulkan/
+      platforms:
+        - android
+        - linux
+        - windows
+    - path: flutter_scene_generated/opengl_es/
+      platforms:
+        - web
+

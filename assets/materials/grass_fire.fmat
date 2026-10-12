@@ -1,0 +1,106 @@
+// Burning grass: one camera-facing flame sheet per burning cell, drawn as
+// one sorted instanced batch, wide enough that neighbours merge into a
+// wall of fire. The flame is procedural: domain-warped fbm scrolling up,
+// thresholded against height so it splits into tongues that tear off and
+// vanish, a white-hot root, a blackbody body (yellow, orange, deep red
+// tips) pushed past 1 so it blooms, and dark smoke curling off the top.
+// Each sheet has its own phase (neighbours never flicker together) and
+// heat (a young fire roars tall, a dying one gutters low). Leans downwind.
+material {
+  name: "grass_fire",
+  shading_model: unlit,
+  blending: alpha,
+  culling: none,
+  depth_write: false,
+  engine_inputs: [scene_depth],
+  parameters: [
+    { type: float, name: time, default: 0.0 },
+    { type: float, name: wind, hint: range(0, 2, 0.01), default: 0.3 },
+    { type: float, name: brightness, hint: range(0, 8, 0.01), default: 1.0 },
+  ],
+  instance_attributes: [
+    { type: float, name: phase },
+    { type: float, name: heat },
+  ],
+}
+vertex {
+  void Vertex(inout VertexInputs vertex) {
+    // A cylindrical billboard: the sheet turns about its upright to face
+    // the eye, so the fire never shows an edge or a crossed-card X.
+    vec3 origin = (vertex.model_transform * vec4(0.0, 0.0, 0.0, 1.0)).xyz;
+    float s = length(vertex.model_transform[0].xyz);
+    vec3 to = vertex.camera_position - origin;
+    to.y = 0.0;
+    vec3 right = normalize(vec3(to.z, 0.0, -to.x) + vec3(1e-4, 0.0, 0.0));
+    float h = clamp(vertex.position.y / 2.4, 0.0, 1.0);
+    float t = material_params.time;
+    float sway = sin(t * 2.3 + instance_phase * 6.0) * 0.18 +
+        sin(t * 5.1 + instance_phase * 11.0) * 0.07;
+    vertex.world_position = origin + right * (vertex.position.x * s) +
+        vec3((material_params.wind * 0.6 + sway) * h * h * s,
+             vertex.position.y * s, 0.0);
+  }
+}
+fragment {
+  #include <noise.glsl>
+
+  vec3 Blackbody(float t) {
+    vec3 red = vec3(0.45, 0.04, 0.0);
+    vec3 orange = vec3(1.0, 0.32, 0.03);
+    vec3 yellow = vec3(1.0, 0.7, 0.2);
+    vec3 white = vec3(1.0, 0.93, 0.75);
+    vec3 c = mix(red, orange, smoothstep(0.05, 0.4, t));
+    c = mix(c, yellow, smoothstep(0.4, 0.75, t));
+    return mix(c, white, smoothstep(0.8, 1.0, t));
+  }
+
+  void Surface(inout MaterialInputs material) {
+    vec2 uv = GetUV0();
+    float t = material_params.time;
+    float phase = GetInstancePhase();
+    float heat = GetInstanceHeat();
+
+    // Domain warp: a slow coarse field bends the fast fine one, so the
+    // tongues curl and twist instead of scrolling straight up.
+    vec2 q = vec2(uv.x * 1.4 + phase * 13.0, uv.y * 1.1 - t * 0.9);
+    vec2 warp = vec2(NoiseFbm2(q, 11, 3, 2.0, 0.5),
+                     NoiseFbm2(q + vec2(5.2, 1.3), 17, 3, 2.0, 0.5));
+    vec2 p = vec2(uv.x * 1.8 + phase * 7.0, uv.y * 1.7 - t * (2.2 + 0.6 * phase)) +
+        warp * vec2(0.5, 0.3);
+    float n = NoiseFbm2(p, 37, 4, 2.0, 0.5) * 0.5 + 0.5;
+
+    // Soft sides (the sheet blends into its neighbours), and a flame
+    // height that follows the heat.
+    float across = abs(uv.x - 0.5) * 2.0;
+    float side = smoothstep(0.15, 0.95, across);
+    float y = uv.y / (0.5 + 0.5 * heat);
+    float footFade = 1.0 - smoothstep(0.0, 0.16, uv.y);
+
+    // Density: turbulence minus a height ramp, and minus the sheet's own
+    // edges and foot, all before the threshold, so every border of the
+    // flame is torn by the noise and the card's rectangle never shows.
+    float f = clamp((n * 1.5 - y * 1.15 + 0.12 - side * 1.3 - footFade * 0.7 * (1.0 - n)) * 2.4,
+                    0.0, 1.0);
+
+    // Smoke above and around the tongues.
+    float sn = NoiseFbm2(p * 0.6 + vec2(0.0, t * 0.6), 71, 3, 2.0, 0.5) * 0.5 + 0.5;
+    float smoke = smoothstep(0.35, 0.9, y) * (1.0 - smoothstep(0.9, 1.3, y)) *
+        smoothstep(0.35, 0.75, sn) * (1.0 - side) * 0.5;
+
+    // Soft where it meets the ground and the grass.
+    float behind = GetSceneDepth(vec2(0.0)) - GetFragmentViewDepth();
+    float soft = clamp(behind / 0.5, 0.0, 1.0);
+
+    float flame = smoothstep(0.02, 0.22, f);
+    float temp = clamp(f * (1.05 - 0.55 * clamp(y, 0.0, 1.0)) * (0.65 + 0.35 * heat), 0.0, 1.0);
+    vec3 fire = Blackbody(temp) * (0.7 + 2.6 * temp * temp) * material_params.brightness;
+    vec3 color = mix(vec3(0.05, 0.04, 0.035), fire, flame);
+    // The sheet's foot sinks into the ground; never show its straight edge.
+    float foot = smoothstep(0.0, 0.08, uv.y);
+    float a = max(flame, smoke) * soft * foot;
+    if (a <= 0.003) {
+      discard;
+    }
+    material.base_color = vec4(color, a);
+  }
+}

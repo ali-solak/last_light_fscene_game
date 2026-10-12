@@ -1,0 +1,24 @@
+name: gamepads_windows
+description: >-
+  Stand-in for the gamepads Windows plugin. The real one crashes the game
+  with an access violation on its native thread (gamepads_windows 0.3.2),
+  and Last Light reads no gamepad. flutter_scene_input pulls gamepads in for
+  its gamepad source; this stub keeps the native DLL out of the build.
+version: 0.3.2
+publish_to: none
+
+environment:
+  sdk: ">=3.9.0 <4.0.0"
+  flutter: ">=3.35.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+flutter:
+  plugin:
+    implements: gamepads
+    platforms:
+      windows:
+        dartPluginClass: GamepadsWindowsStub
+        fileName: gamepads_windows.dart

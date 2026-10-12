@@ -1,0 +1,114 @@
+// The island ground: the palette texture brought to life with surface
+// detail in world space. Meadows mottle light and dark with straw-dry
+// patches and moss; sand lies in wind ripples; pebbles scatter over both;
+// all of it bumps the normal so a lamp skimming the ground catches it.
+// Fine detail fades with distance (no shimmer). Darkened below the tide
+// line, a thin foam line rides the tide, and scorch marks lie under
+// burning oil (burn_a..d = x, z, radius, strength).
+material {
+  name: "wet_sand",
+  shading_model: lit,
+  blending: opaque,
+  culling: back,
+  parameters: [
+    { type: float, name: time, default: 0.0 },
+    { type: float, name: tide_level, hint: range(-2, 2, 0.01), default: 0.0 },
+    { type: float, name: wet_band, hint: range(0, 2, 0.01), default: 0.55 },
+    { type: vec4, name: burn_a, default: [0, 0, 0, 0] },
+    { type: vec4, name: burn_b, default: [0, 0, 0, 0] },
+    { type: vec4, name: burn_c, default: [0, 0, 0, 0] },
+    { type: vec4, name: burn_d, default: [0, 0, 0, 0] },
+    { type: vec3, name: char_color, default: [0.06, 0.05, 0.04] },
+    { type: sampler2d, name: palette, hint: default_white },
+  ],
+}
+fragment {
+  #include <noise.glsl>
+
+  // A pebble in roughly every third cell of a grid at 1 / [k] metres:
+  // 0 off it, rising to 1 at its crown.
+  float Pebble(vec2 p) {
+    vec2 id = floor(p);
+    vec2 f = fract(p);
+    float h = fract(sin(dot(id, vec2(127.1, 311.7))) * 43758.5453);
+    if (h < 0.75) return 0.0;
+    vec2 c = vec2(fract(h * 13.1), fract(h * 71.7)) * 0.5 + 0.25;
+    float r = 0.1 + 0.12 * fract(h * 5.3);
+    return smoothstep(r, r * 0.3, length((f - c) * vec2(1.0, 1.3)));
+  }
+
+  // The ground's relief in metres-ish: ripples on sand, tussocks on grass,
+  // pebbles on both (fewer in grass). [detail] fades the finest scales.
+  float Relief(vec2 p, float grassy, float detail) {
+    float warp = NoiseSimplex2(p * 0.18, 109);
+    float ripples = sin(dot(p, vec2(0.83, 0.55)) * 6.0 + warp * 5.0) * 0.5 * detail;
+    // Tussocks: clumps that stand up out of flatter turf (ridged, so they
+    // read as tufts rather than waves).
+    float clump = 1.0 - abs(NoiseSimplex2(p * 1.3, 113));
+    float tussocks = (clump * clump * clump - 0.4) * 0.9 +
+        NoiseSimplex2(p * 4.0, 117) * 0.15 * detail;
+    float pebbles = Pebble(p * 1.8) * (1.0 - 0.7 * grassy) * detail;
+    return mix(ripples, tussocks, grassy) * 0.5 + pebbles;
+  }
+
+  float Burn(vec4 spot, vec2 p) {
+    if (spot.w <= 0.0 || spot.z <= 0.0) return 0.0;
+    float d = distance(p, spot.xy) / spot.z;
+    return spot.w * (1.0 - smoothstep(0.5, 1.0, d));
+  }
+
+  void Surface(inout MaterialInputs material) {
+    vec3 wp = GetWorldPosition();
+    vec3 base = SRGBToLinear(texture(palette, GetUV0()).rgb);
+    float t = material_params.time;
+    vec2 p = wp.xz;
+
+    // Close detail only: fade it as a pixel covers more ground.
+    float detail = 1.0 - smoothstep(0.03, 0.15, length(fwidth(p)));
+    float grassy = smoothstep(0.0, 0.05, base.g - base.r);
+
+    // Colour. Shared broad mottling; meadows get dry straw patches and
+    // dark moss, sand a lighter crest on its ripples; pebbles grey-brown.
+    float big = NoiseFbm2(p * 0.07, 101, 3, 2.0, 0.5);
+    float mid = NoiseFbm2(p * 0.35, 103, 2, 2.0, 0.5);
+    float relief = Relief(p, grassy, detail);
+    vec3 grass = base * (1.0 + 0.28 * big + 0.14 * mid);
+    float dry = smoothstep(0.15, 0.5, NoiseFbm2(p * 0.16 + 3.1, 107, 2, 2.0, 0.5));
+    grass = mix(grass, grass * vec3(1.45, 1.15, 0.5), dry * 0.6);
+    float moss = smoothstep(0.15, 0.55, -mid);
+    grass = mix(grass, grass * vec3(0.55, 0.75, 0.6), moss * 0.45);
+    grass *= 0.85 + 0.3 * clamp(relief + 0.5, 0.0, 1.0);
+    // Blades and bare earth flecked through the turf (colour only).
+    float fleck = NoiseValue2(p * 24.0, 119);
+    grass *= mix(1.0, 0.75 + 0.5 * fleck, detail * 0.6);
+    vec3 sand = base * (1.0 + 0.14 * big + 0.06 * mid);
+    sand *= 0.9 + 0.2 * clamp(relief + 0.5, 0.0, 1.0);
+    base = mix(sand, grass, grassy);
+    float pebble = Pebble(p * 1.8) * (1.0 - 0.7 * grassy) * detail;
+    // Pebbles: weathered grey stones, a little lighter than the ground so
+    // they read as raised, not as holes.
+    vec3 stone = mix(base, vec3(0.42, 0.4, 0.37), 0.6) * (0.85 + 0.3 * big);
+    base = mix(base, stone, pebble * 0.8);
+
+    // Relief into the normal, by finite differences.
+    const float e = 0.04;
+    float rx = Relief(p + vec2(e, 0.0), grassy, detail);
+    float rz = Relief(p + vec2(0.0, e), grassy, detail);
+    float amp = mix(0.06, 0.025, grassy) * detail;
+    vec3 n = normalize(GetWorldNormal());
+    material.normal = normalize(n - vec3(rx - relief, 0.0, rz - relief) * (amp / e));
+    float wave = NoiseSimplex2(wp.xz * 0.15 + vec2(t * 0.15, 0.0), 7) * 0.12;
+    float line = material_params.tide_level + material_params.wet_band + wave;
+    float wet = 1.0 - smoothstep(line - 0.15, line + 0.05, wp.y);
+    base *= mix(1.0, 0.55, wet);
+    float foam = 1.0 - smoothstep(0.0, 0.06, abs(wp.y - line));
+    base = mix(base, vec3(0.75, 0.78, 0.80), foam * 0.6);
+    float burn = max(
+        max(Burn(material_params.burn_a, wp.xz), Burn(material_params.burn_b, wp.xz)),
+        max(Burn(material_params.burn_c, wp.xz), Burn(material_params.burn_d, wp.xz)));
+    base = mix(base, material_params.char_color, clamp(burn, 0.0, 1.0));
+    material.base_color = vec4(base, 1.0);
+    material.roughness = mix(mix(0.95, 0.6, pebble), 0.35, wet);
+    material.metallic = 0.0;
+  }
+}

@@ -1,0 +1,64 @@
+// Where the beam lands: a box projected along a beam segment that paints
+// light on whatever is inside it, the sand, the rocks, the crabs in it, so
+// the beam reads along its whole run and not only where the shaft ends.
+//
+// The box's local X runs across the beam (-0.5..0.5), Y up, Z along it
+// (-0.5 at the source). DecalNode writes decal_inverse and decal_fade.
+// `dashed` draws the dawn-build preview: a thin marching guide instead.
+material {
+  name: "beam_ground",
+  shading_model: unlit,
+  blending: additive,
+  culling: front,
+  depth_test: always,
+  engine_inputs: [scene_depth],
+  parameters: [
+    { type: mat4, name: decal_inverse },
+    { type: float, name: decal_fade, hint: range(0, 1, 0.01), default: 1.0 },
+    { type: float, name: time, default: 0.0 },
+    { type: float, name: intensity, hint: range(0, 4, 0.01), default: 1.0 },
+    { type: vec3, name: color, default: [1.0, 0.80, 0.52] },
+    { type: float, name: flame, hint: range(0, 1, 0.01), default: 1.0 },
+    { type: float, name: dashed, hint: range(0, 1, 1), default: 0.0 },
+    // Metres along the box, so the dashes and ripples keep their size.
+    { type: float, name: span, default: 10.0 },
+  ],
+}
+fragment {
+  #include <noise.glsl>
+
+  void Surface(inout MaterialInputs material) {
+    vec3 wp = GetSceneWorldPosition(vec2(0.0));
+    vec3 local = (material_params.decal_inverse * vec4(wp, 1.0)).xyz;
+    vec3 outside = step(vec3(0.5), abs(local));
+    if (max(outside.x, max(outside.y, outside.z)) > 0.0) {
+      discard;
+    }
+    float across = abs(local.x) * 2.0;
+    float along = local.z + 0.5;
+    float metres = along * material_params.span;
+    float t = material_params.time;
+
+    float body = 1.0 - smoothstep(0.45, 1.0, across);
+    float core = 1.0 - smoothstep(0.0, 0.45, across);
+    float ends = smoothstep(0.0, 0.03, along) * (1.0 - smoothstep(0.93, 1.0, along));
+    // Lower in the box (the ground) takes the light; tall things above get
+    // a little less, so a rock face still catches it.
+    float height = 1.0 - smoothstep(0.1, 0.5, local.y) * 0.5;
+    // Caustic shimmer from the lens and the swell of the sea air.
+    float shimmer = 0.8 + 0.2 * NoiseSimplex3(vec3(wp.xz * 0.9, t * 0.8), 31);
+
+    float energy;
+    if (material_params.dashed > 0.5) {
+      float dash = step(0.5, fract(metres * 0.6 - t * 1.4));
+      float line = 1.0 - smoothstep(0.08, 0.2, across);
+      energy = line * dash * ends * 0.5;
+    } else {
+      energy = (body * 0.55 + core * 0.7) * ends * height * shimmer;
+    }
+    energy *= material_params.intensity * material_params.decal_fade *
+        (0.35 + 0.65 * material_params.flame) * 0.32;
+    material.base_color = vec4(material_params.color * energy, energy);
+    PrepareMaterial(material);
+  }
+}

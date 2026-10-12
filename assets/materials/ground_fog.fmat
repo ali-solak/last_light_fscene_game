@@ -1,0 +1,49 @@
+// Low rolling fog around the shore. It thickens through the night
+// (density), is gone at dawn, and the beam cuts through it as it sweeps.
+material {
+  name: "ground_fog",
+  shading_model: unlit,
+  blending: alpha,
+  culling: none,
+  depth_write: false,
+  parameters: [
+    { type: float, name: time, default: 0.0 },
+    { type: float, name: density, hint: range(0, 1, 0.01), default: 0.6 },
+    { type: vec4, name: beam, default: [0, 0, 0, 0] },
+    { type: vec3, name: fog_color, default: [0.18, 0.22, 0.30] },
+    { type: vec3, name: lit_color, default: [0.9, 0.75, 0.5] },
+  ],
+  varyings: [
+    { type: vec2, name: fog_uv },
+  ],
+}
+vertex {
+  void Vertex(inout VertexInputs vertex) {
+    fog_uv = vertex.uv;
+  }
+}
+fragment {
+  #include <noise.glsl>
+  precision highp float;
+
+  void Surface(inout MaterialInputs material) {
+    vec3 wp = GetWorldPosition();
+    float t = material_params.time;
+    float n = NoiseFbm2(wp.xz * 0.08 + vec2(t * 0.05, t * 0.02), 91, 3, 2.0, 0.5) * 0.5 + 0.5;
+    float edge =
+        1.0 - smoothstep(0.30, 0.5, max(abs(fog_uv.x - 0.5), abs(fog_uv.y - 0.5)));
+    float a = smoothstep(0.35, 0.85, n) * edge * material_params.density * 0.55;
+    vec4 b = material_params.beam;
+    vec3 color = material_params.fog_color;
+    if (b.w > 0.0) {
+      vec2 dir = vec2(-sin(b.z), -cos(b.z));
+      vec2 rel = wp.xz - b.xy;
+      float along = dot(rel, dir);
+      float across = abs(rel.x * dir.y - rel.y * dir.x);
+      float lit = step(0.0, along) * (1.0 - smoothstep(1.0, 2.6, across));
+      color = mix(color, material_params.lit_color, lit * b.w);
+      a *= mix(1.0, 0.55, lit);
+    }
+    material.base_color = vec4(color, a);
+  }
+}

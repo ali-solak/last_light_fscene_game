@@ -1,0 +1,90 @@
+// Volumetric light shafts: the lighthouse beam, its mirror relays and the
+// lantern. Drawn on an open cylinder (local Y from -0.5 at the source to
+// 0.5 at the far end), both walls, additive.
+//
+// Brightness gathers where the eye looks straight through the shaft and
+// fades to the rim, drifting dust and sea spray swirl in it, it fades soft
+// where it meets terrain or a crab (scene depth) and where the camera
+// pushes into it, and it thins with length. The lighthouse beam follows
+// the Flame (use_flame = 1): a starving Flame stutters.
+material {
+  name: "beam",
+  shading_model: unlit,
+  blending: additive,
+  culling: none,
+  depth_write: false,
+  engine_inputs: [scene_depth],
+  parameters: [
+    { type: float, name: time, default: 0.0 },
+    { type: float, name: intensity, hint: range(0, 4, 0.01), default: 1.0 },
+    { type: vec3, name: color, default: [1.0, 0.82, 0.55] },
+    { type: float, name: flicker, hint: range(0, 1, 0.01), default: 0.0 },
+    { type: float, name: flame, hint: range(0, 1, 0.01), default: 1.0 },
+    { type: float, name: use_flame, hint: range(0, 1, 1), default: 1.0 },
+    // How far (m) the shaft runs before it starts to thin out, as 0..1.
+    { type: float, name: reach, hint: range(0, 1, 0.01), default: 0.7 },
+    { type: float, name: wind, hint: range(0, 3, 0.01), default: 0.4 },
+    // How far (m) the shaft fades out before meeting the ground.
+    { type: float, name: soft_depth, hint: range(0.05, 3, 0.01), default: 1.2 },
+    // 0: only the middle glows (seen side-on); 1: the whole cone is lit air,
+    // so it reads even looking down its length (the lantern from behind).
+    { type: float, name: fill, hint: range(0, 1, 0.01), default: 0.0 },
+    // How much the drifting dust sparkles, and how far (m) from the eye
+    // the shaft fades out (so standing in it never smears the screen).
+    { type: float, name: motes, hint: range(0, 1, 0.01), default: 0.35 },
+    { type: float, name: near_fade, hint: range(0.5, 8, 0.01), default: 3.0 },
+  ],
+  varyings: [
+    { type: float, name: along },
+  ],
+}
+vertex {
+  void Vertex(inout VertexInputs vertex) {
+    along = clamp(vertex.position.y + 0.5, 0.0, 1.0);
+  }
+}
+fragment {
+  #include <noise.glsl>
+  precision highp float;
+
+  void Surface(inout MaterialInputs material) {
+    vec3 n = normalize(GetWorldNormal());
+    vec3 v = normalize(GetViewDirection());
+    float facing = abs(dot(n, v));
+    // Looking through the middle of the shaft crosses the most air.
+    float core = mix(pow(facing, 2.2), 1.0, material_params.fill);
+    float t = material_params.time;
+    vec3 wp = GetWorldPosition();
+
+    // Dust and spray: two scales of noise drifting on the wind, the fine
+    // one sparkling, so the shaft reads as lit air rather than a cone.
+    vec3 drift = vec3(t * 0.35 * material_params.wind, t * 0.12, t * 0.2);
+    float haze = NoiseFbm3(wp * 0.35 + drift, 11, 3, 2.0, 0.5);
+    float motes = NoiseSimplex3(wp * 3.2 + drift * 4.0, 23);
+    float dust = 0.7 + 0.45 * haze +
+        material_params.motes * smoothstep(0.55, 0.95, motes);
+
+    // Soft where it meets the opaque world, and where the camera enters.
+    float depth = GetFragmentViewDepth();
+    float behind = GetSceneDepth(vec2(0.0)) - depth;
+    float soft = clamp(behind / material_params.soft_depth, 0.0, 1.0);
+    float near = smoothstep(material_params.near_fade * 0.3,
+                            material_params.near_fade, depth);
+
+    float start = smoothstep(0.0, 0.035, along);
+    float tail = 1.0 - smoothstep(material_params.reach, 1.0, along);
+    float flame = mix(1.0, material_params.flame, material_params.use_flame);
+    float stutter = 1.0;
+    if (flame < 0.3) {
+      stutter = 0.55 + 0.45 * step(0.0, sin(t * 23.0) * sin(t * 7.3 + 1.0));
+    }
+    float flicker = 1.0 - material_params.flicker *
+        (0.5 + 0.5 * NoiseSimplex2(vec2(t * 9.0, 3.0), 5));
+    float energy = core * dust * soft * near * start * tail *
+        material_params.intensity * (0.3 + 0.7 * flame) * stutter * flicker *
+        0.22;
+    // A hot white core, warm edges.
+    vec3 tint = mix(material_params.color, vec3(1.0, 0.97, 0.9), core * 0.5);
+    material.base_color = vec4(tint * energy, energy);
+  }
+}
