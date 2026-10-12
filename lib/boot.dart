@@ -19,9 +19,10 @@ import 'common/events.dart';
 import 'common/inputs.dart';
 import 'features/boons/boons.dart';
 import 'features/camera/camera.dart';
-import 'features/crabs/crabs.dart' show Dazzled, crabBundle;
+import 'features/crabs/crabs.dart' show Crab, Dazzled, Dead, Exposed, crabBundle;
 import 'features/fx/fx.dart';
 import 'common/settings.dart';
+import 'common/states.dart';
 import 'features/island/island.dart';
 import 'features/keeper/keeper.dart' show Keeper;
 import 'features/lantern/lantern.dart' show Lantern;
@@ -91,7 +92,7 @@ Future<void> boot() async {
     await warmUpPipelines(scene, models, materials, fxTextures);
     if (kDebugMode) _reportSlowSystems(game);
     if (kDebugMode) _reportHitches(game, scene);
-    if (kDebugMode) _autoplay(game);
+    if (!kReleaseMode) _autoplay(game);
     runApp(GameHost(game: game, child: const LastLightApp()));
   } catch (error, stack) {
     debugPrint('last_light: boot failed: $error\n$stack');
@@ -136,8 +137,8 @@ void _reportHitches(SceneGame game, Scene scene) {
   });
 }
 
-/// Debug: `--dart-define=LL_AUTOPLAY=boons|build|night` walks the flow on
-/// its own (for screenshots and smoke runs): start, pick the first boon,
+/// Debug and profile: `--dart-define=LL_AUTOPLAY=boons|build|night` walks
+/// the flow on its own (for screenshots and smoke runs): start, pick the first boon,
 /// ring the bell, and at night hold the lantern while turning on the spot.
 void _autoplay(SceneGame game) {
   const target = String.fromEnvironment('LL_AUTOPLAY');
@@ -220,6 +221,7 @@ void _autoplay(SceneGame game) {
           game.world.query<Lantern>().having<Keeper>().each((_, l) => l.oil = 0);
         });
       }
+      if (const String.fromEnvironment('LL_SHOT') == 'demo') _demoPilot(game);
       if (const String.fromEnvironment('LL_SHOT') == 'pause') {
         Future.delayed(const Duration(seconds: 6), () => game.emit(const PauseToggled()));
       }
@@ -284,4 +286,53 @@ void _autoplay(SceneGame game) {
           'arm=${view?.arm.currentLength} node=${view?.node.globalTransform.getTranslation()}');
     });
   }();
+}
+
+/// Debug: `LL_SHOT=demo` plays the night for a recording. He turns to the
+/// nearest crab and walks up to it, burns its shroud off with the focused
+/// lamp, harpoons it once bare, and swings the lamp at anything close.
+void _demoPilot(SceneGame game) {
+  final world = game.world;
+  const dt = 0.033;
+  var held = 0.0, sinceShot = 0.0, sinceBash = 0.0;
+  Timer.periodic(const Duration(milliseconds: 33), (_) {
+    sinceShot += dt;
+    sinceBash += dt;
+    final keeper = world.query<SceneTransform>().having<Keeper>().firstOrNull?.$2;
+    if (keeper == null || world.state<GameStatus>() != GameStatus.night) return;
+    final buttons = world.buttons<KeeperAction>();
+    final axes = world.axes<KeeperAxis>();
+
+    Entity? crab;
+    SceneTransform? at;
+    var best = 30.0 * 30.0;
+    world.query<SceneTransform>().having<Crab>().without<Dead>().each((e, t) {
+      final d = (t.x - keeper.x) * (t.x - keeper.x) + (t.z - keeper.z) * (t.z - keeper.z);
+      if (d < best) (crab, at, best) = (e, t, d);
+    });
+    if ((crab, at) case (final crab?, final at?)) {
+      final d = math.sqrt(best);
+      final exposed = world.has<Exposed>(crab);
+      world.resource<CameraRig>()
+        ..yawGoal = math.atan2(at.x - keeper.x, at.z - keeper.z)
+        ..pitch = math.atan2(1.3, d).clamp(0.03, 0.5);
+      axes.setValue(KeeperAxis.moveY, d > 8 ? 1 : 0);
+      buttons.setPressed(KeeperAction.focus, d > 3 && d < 15 && !exposed);
+      if (held > 0) {
+        held -= dt;
+        if (held <= 0) buttons.setPressed(KeeperAction.harpoon, false);
+      } else if (exposed && d > 3 && d < 16 && sinceShot > 2) {
+        buttons.setPressed(KeeperAction.harpoon, true);
+        (held, sinceShot) = (0.3, 0);
+      }
+      if (d < 2.4 && sinceBash > 0.6) {
+        world.buffer<KeeperAction>().record(KeeperAction.bash);
+        sinceBash = 0;
+      }
+    } else {
+      axes.setValue(KeeperAxis.moveY, 0);
+      buttons.release(KeeperAction.focus);
+      world.resource<CameraRig>().yawGoal += 0.01;
+    }
+  });
 }
