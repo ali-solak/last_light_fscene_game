@@ -37,6 +37,7 @@ Feature configureGame(
   Settings? settings,
   SaveStore? save,
   Materials? materials,
+  FxTextures? fxTextures,
   int? seed,
 }) => (game) {
   game
@@ -59,6 +60,7 @@ Feature configureGame(
     ..insert(Wind());
   if (save != null) game.world.insert(save);
   if (materials != null) game.world.insert(materials);
+  if (fxTextures != null) game.world.insert(fxTextures);
   configureEvents(game);
   installSettings(game);
   installPause(game);

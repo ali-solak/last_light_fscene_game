@@ -58,6 +58,7 @@ const double fpFocusFovDeg = 54;
 const double fpNear = 0.04;
 const double fpPitchLimitDeg = 82;
 const double fpLookSensitivity = 0.0028;
+
 /// Steps per second never pass this however fast he runs (a quick run is
 /// longer strides, not a faster patter), and a step covers this much.
 const double fpStepsMax = 1.9;
@@ -66,6 +67,7 @@ const double fpBobUp = 0.022;
 const double fpBobSide = 0.014;
 const double fpDipPerMetre = 0.09;
 const double fpDipHalfLife = 0.12;
+
 /// Shake in first person turns the view (radians per metre of shake).
 const double fpShakeTurn = 0.08;
 
