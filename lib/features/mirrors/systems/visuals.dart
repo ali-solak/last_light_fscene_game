@@ -49,8 +49,8 @@ void _dressMirrors(World world) {
     final asset = prism ? 'prism' : 'mirror';
     if (!lib.has(asset)) return;
     final node = lib.instance(asset);
-    final pivot = lib.find(node, prism ? 'prism_pivot' : 'mirror_pivot');
-    final surface = lib.find(node, prism ? 'crystal' : 'mirror_surface');
+    final pivot = node.getChildByName(prism ? 'prism_pivot' : 'mirror_pivot');
+    final surface = node.getChildByName(prism ? 'crystal' : 'mirror_surface');
     final shine = materials?.take(prism ? 'crystal' : 'mirror');
     if (surface != null && shine != null) {
       assignNode(surface, shine);
@@ -65,7 +65,7 @@ void _dressMirrors(World world) {
       }
     }
     // The toppled frame only shows once it falls.
-    lib.find(node, 'frame_toppled')?.visible = false;
+    node.getChildByName('frame_toppled')?.visible = false;
     final clips = prism ? null : bindClips(lib, 'mirror', node, start: 'Raise');
     // A glare on the face while it holds light.
     final dot = world.tryResource<FxTextures>()?.dot;

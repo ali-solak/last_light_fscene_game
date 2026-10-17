@@ -56,16 +56,26 @@ const double harpoonSelfReelArrive = 1.0;
 const double harpoonReloadFallback = 1.2;
 
 /// The chain: point masses on a verlet rope, a link drawn on each
-/// segment. Paid out loose while the bolt flies, taut when reeling.
+/// segment. Paid out loose while the bolt flies, still sagging when
+/// reeling; the slack eases between the two rather than snapping.
 const int harpoonChainPoints = 56;
 const double harpoonVisualScale = 4.0;
 const double harpoonChainGravity = 22;
 const double harpoonChainDamping = 0.985;
 const double harpoonChainThickness = 0.05;
-const double harpoonChainSlackFlying = 1.22;
-const double harpoonChainSlackHooked = 1.08;
-const double harpoonChainSlackReeling = 0.98;
-const double harpoonChainRetractSeconds = 0.35;
+const double harpoonChainSlackFlying = 1.4;
+const double harpoonChainSlackHooked = 1.18;
+const double harpoonChainSlackReeling = 1.06;
+const double harpoonChainSlackHalfLife = 0.12;
+
+/// Done, the bolt hangs where it struck this long, then the chain winds
+/// in at this speed (m/s), reached over the ramp, dragging the bolt home.
+const double harpoonChainDwellSeconds = 0.2;
+const double harpoonChainWindSpeed = 22;
+const double harpoonChainWindRamp = 0.3;
+
+/// The bolt is drawn at this scale, tip leading, the chain on its tail.
+const double harpoonBoltScale = 2.5;
 
 /// The gun kicks back this far and pitches up this much at full recoil.
 const double harpoonGunKick = 0.18;

@@ -4,9 +4,9 @@ import 'dart:typed_data';
 
 import 'package:vector_math/vector_math.dart';
 
-/// A minimal, pure-Dart reader for the parts of a `.glb` gameplay needs
-/// without a renderer: node transforms by name and triangle soups by mesh
-/// name. Everything it returns is in engine space: the scene importer bakes
+/// A minimal, pure-Dart reader for the parts of a `.glb` gameplay needs,
+/// for headless tests (the game reads them off the loaded model): node
+/// transforms by name and triangle soups by mesh name. Everything it returns is in engine space: the scene importer bakes
 /// glTF's right-handed axes by negating Z, and this does the same.
 final class GlbDocument {
   GlbDocument._(this._json, this._bin) {

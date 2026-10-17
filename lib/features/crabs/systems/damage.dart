@@ -30,9 +30,13 @@ void installCrabDamage(GameBuilder game) {
     );
 }
 
-/// Light damage from the exposure numbers, with the immunities: tar shells
-/// until cracked, burrowers underground, glassbacks to the beam. Focus on a
-/// tar shell for 1.5 s cracks it.
+/// Light damage from the exposure numbers: only the beams hurt, the
+/// lighthouse's (and its bounces) and the lantern's focus. The lantern's
+/// glow, lamps and braziers hold crabs off instead: they route round it,
+/// slow in it, and the lantern burns their shrouds through for the harpoon
+/// (shroud.dart). With the immunities:
+/// tar shells until cracked, burrowers underground, glassbacks to the
+/// beam. Focus on a tar shell for 1.5 s cracks it.
 void _applyLightDamage(World world) {
   final dt = world.dt;
   final kindling = !world.entitiesWith<Kindling>().isEmpty;
@@ -59,11 +63,11 @@ void _applyLightDamage(World world) {
       return;
     }
 
-    var dps = light.dps;
-    if (!world.has<ReflectsBeam>(entity)) dps += light.beamDps;
-    if (kindling && light.dps > 0) {
+    var dps = (light.focus ? light.dps : 0) +
+        (world.has<ReflectsBeam>(entity) ? 0.0 : light.beamDps);
+    if (kindling && dps > 0) {
       world.add(entity, const Burning(), removeAfter: crabKindlingSeconds);
-    } else if (light.dps == 0 && world.has<Burning>(entity)) {
+    } else if (dps == 0 && world.has<Burning>(entity)) {
       dps += crabBurnDps;
     }
     health.current -= dps * dt;

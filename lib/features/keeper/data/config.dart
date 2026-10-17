@@ -37,6 +37,12 @@ const double keeperHitInvuln = 1.0;
 const double keeperHitStagger = 0.4;
 const double keeperDownedSeconds = 4;
 
+/// This many swarmling nibbles cost a heart. Every bite that gets through
+/// shoves him off the crab this hard (m/s): a nibble, a lost heart.
+const int keeperNibblesPerHeart = 3;
+const double keeperNibbleShove = 3.5;
+const double keeperHitShove = 7;
+
 // Reeling himself to a harpooned rock (Whaler's Reel).
 const double keeperReelSpeed = 11;
 

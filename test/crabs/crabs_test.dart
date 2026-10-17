@@ -59,9 +59,9 @@ void main() {
     expect(brain(crab).mode.state, CrabMode.climbing);
   });
 
-  test('cowering stops movement', () {
-    lamp(10, 20);
-    final crab = game.crab(CrabType.scuttler, 10, 20);
+  test('the beam makes a crab cower, and cowering stops movement', () {
+    game.pinBeam(yaw: -1.5707963267948966);
+    final crab = game.crab(CrabType.basher, 15, 0);
     game.seconds(0.3);
     expect(brain(crab).mode.state, CrabMode.cowering);
     final before = at(crab).translation.clone();
@@ -69,10 +69,36 @@ void main() {
     expect(at(crab).translation.distanceTo(before), lessThan(1e-6));
   });
 
-  test('a tarback takes 0 damage until its shell cracks', () {
-    final crab = game.crab(CrabType.tarback, 0, 20);
+  test("the lantern's focus cowers and burns a crab like the beam", () {
+    final crab = game.crab(CrabType.basher, 0, 20);
     game.placeKeeper(0, 14);
     game.aimAt(0, 20);
+    game.world.buttons<KeeperAction>().press(KeeperAction.focus);
+    game.seconds(1.5);
+    expect(brain(crab).mode.state, CrabMode.cowering);
+    final health = game.world.get<Health>(crab);
+    expect(health.current, lessThan(health.max - 10));
+  });
+
+  test('lamp light never hurts a crab or stops it, only slows it', () {
+    lamp(10, 20);
+    final crab = game.crab(CrabType.basher, 10, 20);
+    game.seconds(1);
+    final health = game.world.get<Health>(crab);
+    expect(health.current, health.max);
+    expect(brain(crab).mode.state, isNot(CrabMode.cowering));
+    expect(
+      game.world.get<CrabBody>(crab).velocity.length,
+      lessThanOrEqualTo(crabStats[CrabType.basher]!.speed * crabLightSlow * 1.1 + 1e-6),
+    );
+  });
+
+  test('a tarback in the beam takes 0 damage until the lantern cracks it',
+      () {
+    game.pinBeam(yaw: -1.5707963267948966);
+    final crab = game.crab(CrabType.tarback, 15, 0);
+    game.placeKeeper(15, -6);
+    game.aimAt(15, 0);
     game.world.buttons<KeeperAction>().press(KeeperAction.focus);
     game.seconds(1.3);
     final health = game.world.get<Health>(crab);
@@ -187,12 +213,12 @@ void main() {
     expect(g.world.isAlive(crab), isFalse);
   });
 
-  test('the beam does 30 damage per second', () {
+  test('the beam does its damage per second', () {
     game.pinBeam(yaw: -1.5707963267948966);
     final crab = game.crab(CrabType.basher, 15, 0);
     game.seconds(1);
     final health = game.world.get<Health>(crab);
-    expect(health.max - health.current, closeTo(30, 2));
+    expect(health.max - health.current, closeTo(lightBeamDps, 2));
   });
 
   test('the flow field leads to the lighthouse', () {
@@ -224,20 +250,21 @@ void main() {
 
   test('crabs from every beach reach the tower without sticking', () {
     final g = makeGame()..quietNight();
-    // The keeper well out of the way (no hunting), the beam off.
+    // The keeper well out of the way, the beam off; snuffers, which do not
+    // hunt him from afar the way scuttlers do.
     g.world.get<SceneTransform>(g.keeper).setTranslation(-6, 2, 14.5);
     g.world.resource<Beam>().on = false;
     g.world.get<Lantern>(g.keeper).away = 1e6;
     final crabs = <Entity>[];
     for (final p in g.world.resource<SpawnPoints>().points) {
       for (var k = 0; k < 2; k++) {
-        crabs.add(g.crab(CrabType.scuttler, p.x + k * 1.5, p.z + k));
+        crabs.add(g.crab(CrabType.snuffer, p.x + k * 1.5, p.z + k));
       }
     }
     // Climbers go up out of reach, so note each one as it gets there.
     final reached = <Entity>{};
     final flame = g.world.resource<Flame>();
-    for (var i = 0; i < 60 * 80; i++) {
+    for (var i = 0; i < 60 * 120; i++) { // snuffers walk slower than scuttlers
       // Climbers drain the Flame; keep the night going.
       flame.current = flame.max;
       g.pumpFixed(steps: 1);

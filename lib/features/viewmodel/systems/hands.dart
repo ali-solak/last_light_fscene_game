@@ -170,8 +170,8 @@ void _spawnHands(World world) {
   if (!lib.has('harpoon_gun') || !lib.has('oil_lamp')) return;
   final gun = lib.instance('harpoon_gun')..visible = false;
   final lamp = lib.instance('oil_lamp')..visible = false;
-  lib.find(lamp, 'lamp_flame')?.visible = false;
-  final glass = lib.find(lamp, 'lamp_glass');
+  lamp.getChildByName('lamp_flame')?.visible = false;
+  final glass = lamp.getChildByName('lamp_glass');
   final glow = glass == null
       ? null
       : world.tryResource<Materials>()?.take('lamp_glass');
@@ -204,7 +204,7 @@ void _spawnHands(World world) {
     setRenderLayer(node, RenderLayers.actors);
     world.spawn([NodeRef(node)]);
   }
-  world.spawn([Hands(gun, lamp, lib.find(gun, 'muzzle'), halo, glow)]);
+  world.spawn([Hands(gun, lamp, gun.getChildByName('muzzle'), halo, glow)]);
 }
 
 void _noShadow(Node node) {

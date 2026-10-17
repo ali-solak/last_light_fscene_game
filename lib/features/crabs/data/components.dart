@@ -85,6 +85,12 @@ final class CrabBody(final double size, final double speed) {
 
   /// Where the last discrete hit came from, for the corpse's tumble.
   double hitFromX = 0, hitFromZ = 0;
+
+  /// A hunter's leap at the keeper: seconds left in the air, its ground
+  /// velocity, and seconds until it can leap again.
+  double leap = 0;
+  double leapX = 0, leapZ = 0;
+  double leapCooldown = 0;
 }
 
 /// Overrides the cower threshold (snuffers cower less).
@@ -102,6 +108,10 @@ final class TarShell {
 final class const FleesLight() implements Tag;
 
 final class const SeeksLight() implements Tag;
+
+/// Fearless: hunts the keeper from far off, never cowers, and pushes on
+/// through a beam (hurt and slowed) rather than stopping.
+final class const HuntsKeeper() implements Tag;
 
 final class const SnuffsLamps() implements Tag;
 

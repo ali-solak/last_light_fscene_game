@@ -14,7 +14,7 @@ List<Object> crabBundle(CrabType type, Vector3 at, {bool brood = false}) {
     SceneTransform.fromVector(at)..setUniformScale(stats.scale),
     const DespawnOnExit(GameStatus.night),
     ...switch (type) {
-      .scuttler => const [FleesLight()],
+      .scuttler => const [HuntsKeeper()],
       .tarback => [const FleesLight(), TarShell()],
       .snuffer => const [
         FleesLight(),

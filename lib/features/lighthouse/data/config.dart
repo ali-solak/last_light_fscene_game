@@ -5,8 +5,9 @@ const double flameLowMark = 30;
 const double flameDawnRestore = 15;
 const double flamePreservesRestore = 25;
 
-/// Flame drained per second by each climbing crab (§5.6).
-const double flameDrainScuttler = 1;
+/// Flame drained per second by each climbing crab (§5.6). Scuttlers come
+/// as a horde, about three to an old wave's one, so each drains a third.
+const double flameDrainScuttler = 0.35;
 const double flameDrainTarback = 2.5;
 const double flameDrainOther = 1.5;
 const double flameDrainBrood = 1;

@@ -9,7 +9,6 @@ const List<String> materialNames = [
   'flame',
   'lamp_glass',
   'crab_shell',
-  'ground_fog',
   'burn',
   'grass_fire',
 ];
@@ -75,8 +74,8 @@ Future<Materials> loadMaterials() async {
 /// Sets [material] on every mesh primitive of the node named [nodeName]
 /// under [root]. Lit materials that declare a `palette` sampler inherit the
 /// GLB's palette texture so the model keeps its colours.
-bool assign(ModelLibrary lib, Node root, String nodeName, Material material) {
-  final node = lib.find(root, nodeName);
+bool assign(Node root, String nodeName, Material material) {
+  final node = root.getChildByName(nodeName);
   if (node == null) return false;
   assignNode(node, material);
   return true;

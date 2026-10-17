@@ -12,8 +12,8 @@ void installKeeperHearts(GameBuilder game) {
     ..addSystem(
       Schedules.fixedUpdate,
       _takeHits,
-      writes: {Hearts, KeeperBrain},
-      reads: {Keeper},
+      writes: {Hearts, KeeperBrain, KeeperBody},
+      reads: {Keeper, SceneTransform},
       inSet: GameSets.keeper,
       after: [_keeperModes],
       runIf: inState(GameStatus.night),
@@ -37,7 +37,9 @@ void _keeperAtDawn(World world) {
     brain,
     t,
   ) {
-    hearts.current = hearts.max;
+    hearts
+      ..current = hearts.max
+      ..nibbles = 0;
     brain
       ..invulnerable = 0
       ..interacting = null
@@ -47,22 +49,46 @@ void _keeperAtDawn(World world) {
 }
 
 /// Crab attacks (and blasts) cost a heart unless jump i-frames or the
-/// post-hit window cover him. At 0 hearts he is downed.
+/// post-hit window cover him; a swarmling's only nibbles toward one. Every
+/// bite that gets through shoves him off the crab. At 0 hearts he is
+/// downed.
 void _takeHits(World world) {
-  final row = world.query2<Hearts, KeeperBrain>().having<Keeper>().firstOrNull;
+  final row = world.query4<Hearts, KeeperBrain, KeeperBody, SceneTransform>()
+      .having<Keeper>()
+      .firstOrNull;
   if (row == null) return;
-  final (_, hearts, brain) = row;
+  final (_, hearts, brain, body, t) = row;
   final hits = [
-    for (final hit in world.events<CrabAttackLanded>()) hit.hearts,
-    for (final hit in world.events<KeeperStruck>()) hit.hearts,
+    for (final hit in world.events<CrabAttackLanded>())
+      (hit.hearts, hit.nibble, world.tryGet<SceneTransform>(hit.crab)),
+    for (final hit in world.events<KeeperStruck>()) (hit.hearts, false, null),
   ];
-  for (final amount in hits) {
+  for (final (amount, nibble, from) in hits) {
     if (brain.mode.state == KeeperMode.downed ||
         brain.iFramed ||
         brain.invulnerable > 0) {
       continue;
     }
-    hearts.current = math.max(0, hearts.current - amount);
+    var lost = amount;
+    if (nibble) {
+      hearts.nibbles++;
+      lost = 0;
+      if (hearts.nibbles >= keeperNibblesPerHeart) {
+        hearts.nibbles = 0;
+        lost = amount;
+      }
+    }
+    if (from != null) {
+      final dx = t.x - from.x, dz = t.z - from.z;
+      final d = math.max(math.sqrt(dx * dx + dz * dz), 1e-3);
+      final shove = lost > 0 ? keeperHitShove : keeperNibbleShove;
+      body.velocity
+        ..x += dx / d * shove
+        ..z += dz / d * shove;
+      world.emit(KeeperBitten(from.x, from.z, lost > 0));
+    }
+    if (lost == 0) continue;
+    hearts.current = math.max(0, hearts.current - lost);
     brain.invulnerable = keeperHitInvuln;
     world.emit(KeeperHit(amount));
     if (hearts.current == 0) {

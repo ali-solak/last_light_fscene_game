@@ -21,25 +21,35 @@ class Vignette extends StatelessWidget {
     final settings = context.world.resource<Settings>();
     return WorldEventListener<KeeperHit>(
       onEvent: (_, _) {
-        if (settings.haptics) HapticFeedback.mediumImpact();
+        if (settings.haptics) HapticFeedback.heavyImpact();
       },
-      child: WorldEventListener<HarpoonHit>(
-        onEvent: (_, _) {
-          if (settings.haptics) HapticFeedback.lightImpact();
+      child: WorldEventListener<KeeperBitten>(
+        onEvent: (_, bite) {
+          if (settings.haptics && !bite.hurt) HapticFeedback.lightImpact();
         },
-        child: WorldEventListener<ShellCracked>(
+        child: WorldEventListener<HarpoonHit>(
           onEvent: (_, _) {
-            if (settings.haptics) HapticFeedback.mediumImpact();
+            if (settings.haptics) HapticFeedback.lightImpact();
           },
-          child: IgnorePointer(
-            child: WorldBuilder<int>.pulse(
-              select: (w) =>
-                  w.query<Hearts>().having<Keeper>().firstOrNull?.$2.current ?? 5,
-              trigger: (previous, next) => next < previous,
-              duration: 0.5,
-              pulseBuilder: (context, hit, _) => WorldBuilder<bool>(
-                select: (w) => w.resource<Flame>().fraction < 0.3,
-                builder: (context, low) => _Edge(hit: hit, low: low),
+          child: WorldEventListener<ShellCracked>(
+            onEvent: (_, _) {
+              if (settings.haptics) HapticFeedback.mediumImpact();
+            },
+            child: IgnorePointer(
+              // Every bite flashes the edge: a heart lost or a nibble.
+              child: WorldBuilder<int>.pulse(
+                select: (w) {
+                  final h = w.query<Hearts>().having<Keeper>().firstOrNull?.$2;
+                  return h == null
+                      ? 0
+                      : h.current * keeperNibblesPerHeart - h.nibbles;
+                },
+                trigger: (previous, next) => next < previous,
+                duration: 0.5,
+                pulseBuilder: (context, hit, _) => WorldBuilder<bool>(
+                  select: (w) => w.resource<Flame>().fraction < 0.3,
+                  builder: (context, low) => _Edge(hit: hit, low: low),
+                ),
               ),
             ),
           ),
@@ -79,7 +89,7 @@ class _EdgeState extends State<_Edge> with SingleTickerProviderStateMixin {
       final t = _beat.value;
       final beat = widget.low
           ? math.max(0.0, math.sin(t * math.pi * 2)) * 0.6 +
-              math.max(0.0, math.sin(t * math.pi * 4 - 0.6)) * 0.3
+                math.max(0.0, math.sin(t * math.pi * 4 - 0.6)) * 0.3
           : 0.0;
       final color = Color.lerp(Palette.lamp, Palette.danger, t)!;
       final strength = math.max(beat * 0.55, widget.hit * 0.8);
@@ -90,8 +100,9 @@ class _EdgeState extends State<_Edge> with SingleTickerProviderStateMixin {
             radius: 1.1,
             colors: [
               Colors.transparent,
-              (widget.hit > beat ? Palette.danger : color)
-                  .withValues(alpha: strength),
+              (widget.hit > beat ? Palette.danger : color).withValues(
+                alpha: strength,
+              ),
             ],
             stops: const [0.62, 1],
           ),

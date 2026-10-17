@@ -49,7 +49,7 @@ void _dressKeeper(World world) {
           'export them from keeper.blend');
     }
     Node? attach(String socket, String asset) {
-      final at = lib.find(model, socket);
+      final at = model.getChildByName(socket);
       if (at == null || !lib.has(asset)) return null;
       final node = lib.instance(asset);
       at.add(node);
@@ -58,13 +58,13 @@ void _dressKeeper(World world) {
 
     final lamp = attach('socket_hand_l', 'oil_lamp');
     final gun = attach('socket_hand_r', 'harpoon_gun');
-    final flame = lamp == null ? null : lib.find(lamp, 'lamp_flame');
+    final flame = lamp?.getChildByName('lamp_flame');
     final materials = world.tryResource<Materials>();
     final flameMaterial = materials?['flame'];
     if (flame != null && flameMaterial != null) {
       assignNode(flame, flameMaterial);
     }
-    final glass = lamp == null ? null : lib.find(lamp, 'lamp_glass');
+    final glass = lamp?.getChildByName('lamp_glass');
     final glassMaterial = glass == null ? null : materials?.take('lamp_glass');
     if (glass != null && glassMaterial != null) {
       assignNode(glass, glassMaterial);

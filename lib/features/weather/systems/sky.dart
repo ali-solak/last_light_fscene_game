@@ -12,8 +12,8 @@ void installSky(GameBuilder game) {
 
 /// Visual: lightning (the island flashes, the clouds light from inside,
 /// thunder shakes the camera a beat later), rain round the camera in a
-/// storm, sea fog banks drifting past, and the wind and storm handed to
-/// every shader that sways or drifts.
+/// storm, sea fog rolling past in banks on the wind, and the wind and
+/// storm handed to every shader that sways or drifts.
 void _weatherLook(World world) {
   final weather = world.resource<Weather>();
   final wind = world.resource<Wind>();
@@ -81,23 +81,27 @@ void _weatherLook(World world) {
     }
   }
 
-  // Sea fog: keep banks drifting round the camera at ground height.
+  // Sea fog: a bank of puffs born upwind, all on one velocity, so it rolls
+  // past the camera as one mass and thins away downwind.
   weather.fogTimer -= dt;
-  if (weather.fogTimer <= 0 && fx[FxKind.fog].alive < weatherFogBanks) {
-    weather.fogTimer = 0.35;
+  if (weather.fogTimer <= 0) {
+    weather.fogTimer = weatherFogBankEvery * (night ? 1 : 2);
     final grid = world.tryResource<HeightGrid>();
-    final a = rng.nextDouble() * math.pi * 2;
-    final d = weatherFogNear + rng.nextDouble() * (weatherFogFar - weatherFogNear);
-    final x = eye.x + math.cos(a) * d, z = eye.z + math.sin(a) * d;
-    final y = math.max(grid?.sample(x, z) ?? 0, 0.0) + 0.8 + rng.nextDouble();
-    final thick = night ? 1.0 : 0.5;
+    final across = (rng.nextDouble() * 2 - 1) * weatherFogBankAcross;
+    final x = eye.x - wind.dirX * weatherFogBankUpwind - wind.dirZ * across;
+    final z = eye.z - wind.dirZ * weatherFogBankUpwind + wind.dirX * across;
+    final y = math.max(grid?.sample(x, z) ?? 0, 0.0) + 0.6;
+    final drift = weatherFogBankDrift * (0.5 + wind.force);
     fx.burst(
       FxKind.fog,
       Vector3(x, y, z),
-      count: 1,
+      count: weatherFogBankPuffs,
       dir: Vector3(wind.dirX, 0, wind.dirZ),
-      spread: 0.3,
-      size: thick * (1 + wind.storm * 0.4),
+      spread: 0.04,
+      speed: drift,
+      life: weatherFogBankUpwind * 2 / drift,
+      radius: weatherFogBankRadius,
+      size: night ? 1.0 : 0.6,
     );
   }
 }

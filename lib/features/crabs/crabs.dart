@@ -28,7 +28,8 @@ import '../boons/boons.dart'
         SaltRing,
         Undertow;
 import '../island/island.dart';
-import '../keeper/keeper.dart' show Keeper, KeeperBrain, KeeperMode;
+import '../keeper/keeper.dart'
+    show Keeper, KeeperBody, KeeperBrain, KeeperMode;
 import '../lamps/lamps.dart' show LampPost;
 import '../lantern/lantern.dart' show Lantern;
 import '../light/light.dart' show LightExposure, LightFlags, LightMap;

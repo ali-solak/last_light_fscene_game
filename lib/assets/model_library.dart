@@ -12,48 +12,53 @@ final class const ClipInfo(
   final bool holdLastFrame = false,
 });
 
-/// Asset key → source path. Keys are the file names without `.glb`, which
-/// is also how `clips.json` keys them (minus the extension).
-const Map<String, String> modelPaths = {
-  'keeper': 'assets/models/characters/keeper.glb',
-  'scuttler': 'assets/models/enemies/scuttler.glb',
-  'tarback': 'assets/models/enemies/tarback.glb',
-  'basher': 'assets/models/enemies/basher.glb',
-  'snuffer': 'assets/models/enemies/snuffer.glb',
-  'burrower': 'assets/models/enemies/burrower.glb',
-  'moth_crab': 'assets/models/enemies/moth_crab.glb',
-  'glassback': 'assets/models/enemies/glassback.glb',
-  'tide_mother': 'assets/models/enemies/tide_mother.glb',
-  'sand_mound': 'assets/models/enemies/sand_mound.glb',
-  'oil_lamp': 'assets/models/weapons/oil_lamp.glb',
-  'harpoon_gun': 'assets/models/weapons/harpoon_gun.glb',
-  'harpoon_bolt': 'assets/models/weapons/harpoon_bolt.glb',
-  'chain_link': 'assets/models/weapons/chain_link.glb',
-  'mirror': 'assets/models/placeables/mirror.glb',
-  'lamp_post': 'assets/models/placeables/lamp_post.glb',
-  'prism': 'assets/models/placeables/prism.glb',
-  'bell': 'assets/models/placeables/bell.glb',
-  'island': 'assets/models/environment/island.glb',
-  'lighthouse': 'assets/models/environment/lighthouse.glb',
-  'cottage': 'assets/models/environment/cottage.glb',
-  'dock': 'assets/models/environment/dock.glb',
-  'rocks_a': 'assets/models/environment/rocks_a.glb',
-  'rocks_b': 'assets/models/environment/rocks_b.glb',
-  'rocks_c': 'assets/models/environment/rocks_c.glb',
-  'crate': 'assets/models/environment/crate.glb',
-  'barrel': 'assets/models/environment/barrel.glb',
-  'buoy': 'assets/models/environment/buoy.glb',
-  'driftwood_a': 'assets/models/environment/driftwood_a.glb',
-  'driftwood_b': 'assets/models/environment/driftwood_b.glb',
-  'fishing_net': 'assets/models/environment/fishing_net.glb',
-  'fence_section': 'assets/models/environment/fence_section.glb',
-  'grass_tuft': 'assets/models/environment/grass_tuft.glb',
-  'beam_cone': 'assets/models/fx/beam_cone.glb',
-  'lamp_cone': 'assets/models/fx/lamp_cone.glb',
-  'tar_splat': 'assets/models/fx/tar_splat.glb',
-  'burn_puddle': 'assets/models/fx/burn_puddle.glb',
-  'flame_card': 'assets/models/fx/flame_card.glb',
-};
+/// Every model the game loads, by source path. The build hook converts
+/// every `.glb` under `assets/`; an asset's key is its file name without
+/// `.glb`, which is also how `clips.json` keys it.
+const List<String> modelSources = [
+  'assets/models/characters/keeper.glb',
+  'assets/models/enemies/scuttler.glb',
+  'assets/models/enemies/tarback.glb',
+  'assets/models/enemies/basher.glb',
+  'assets/models/enemies/snuffer.glb',
+  'assets/models/enemies/burrower.glb',
+  'assets/models/enemies/moth_crab.glb',
+  'assets/models/enemies/glassback.glb',
+  'assets/models/enemies/tide_mother.glb',
+  'assets/models/enemies/sand_mound.glb',
+  'assets/models/weapons/oil_lamp.glb',
+  'assets/models/weapons/harpoon_gun.glb',
+  'assets/models/weapons/harpoon_bolt.glb',
+  'assets/models/weapons/chain_link.glb',
+  'assets/models/placeables/mirror.glb',
+  'assets/models/placeables/lamp_post.glb',
+  'assets/models/placeables/prism.glb',
+  'assets/models/placeables/bell.glb',
+  'assets/models/environment/island.glb',
+  'assets/models/environment/lighthouse.glb',
+  'assets/models/environment/cottage.glb',
+  'assets/models/environment/dock.glb',
+  'assets/models/environment/rocks_a.glb',
+  'assets/models/environment/rocks_b.glb',
+  'assets/models/environment/rocks_c.glb',
+  'assets/models/environment/crate.glb',
+  'assets/models/environment/barrel.glb',
+  'assets/models/environment/buoy.glb',
+  'assets/models/environment/driftwood_a.glb',
+  'assets/models/environment/driftwood_b.glb',
+  'assets/models/environment/fishing_net.glb',
+  'assets/models/environment/fence_section.glb',
+  'assets/models/environment/grass_tuft.glb',
+  'assets/models/fx/beam_cone.glb',
+  'assets/models/fx/lamp_cone.glb',
+  'assets/models/fx/tar_splat.glb',
+  'assets/models/fx/burn_puddle.glb',
+  'assets/models/fx/flame_card.glb',
+];
+
+/// An asset's key: its file name without `.glb`.
+String modelKey(String source) =>
+    source.substring(source.lastIndexOf('/') + 1).replaceAll('.glb', '');
 
 /// Parses `clips.json`: asset file name → clip name → timing.
 Map<String, Map<String, ClipInfo>> parseClipBook(String source) {
@@ -112,15 +117,6 @@ final class ModelLibrary(
   double seconds(String asset, String name, {double fallback = 0.5}) =>
       _clips[asset]?[name]?.seconds ?? fallback;
 
-  /// Depth-first lookup by node name under [root], [root] included.
-  Node? find(Node root, String name) {
-    if (root.name == name) return root;
-    for (final child in root.children) {
-      final hit = find(child, name);
-      if (hit != null) return hit;
-    }
-    return null;
-  }
 }
 
 /// Loads every model, its animations and `clips.json`.
@@ -129,8 +125,8 @@ Future<ModelLibrary> loadModelLibrary() async {
     await rootBundle.loadString('assets/models/clips.json'),
   );
   final entries = await Future.wait([
-    for (final MapEntry(:key, :value) in modelPaths.entries)
-      loadScene(value).then((node) => (key, node)),
+    for (final source in modelSources)
+      loadScene(source).then((node) => (modelKey(source), node)),
   ]);
   final templates = <String, Node>{};
   final animations = <String, Map<String, Animation>>{};

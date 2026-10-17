@@ -28,23 +28,39 @@ void _drawDarts(World world) {
       final node = lib.instance('harpoon_bolt')
         ..addComponent(TrailComponent(width: 0.07, lifetime: 0.2));
       setRenderLayer(node, RenderLayers.actors);
-      visual = DartVisual(node);
+      visual = DartVisual(node, _boltTip(node) * harpoonBoltScale * 0.7);
       world
         ..add(entity, visual)
         ..add(entity, NodeRef(node));
     }
-    visual.node.localTransform = Matrix4.compose(
-      dart.position,
-      Quaternion.fromTwoVectors(Vector3(0, 0, -1), dart.velocity.normalized()),
-      Vector3.all(harpoonVisualScale * 0.7),
+    final dir = dart.velocity.normalized();
+    _placeBolt(
+      visual.node,
+      dart.position - dir * visual.tip,
+      dir,
+      harpoonBoltScale * 0.7,
     );
   });
 }
 
+/// The bolt model's tip along its +Z (its origin is the chain's anchor).
+double _boltTip(Node bolt) =>
+    bolt.getChildByName('tip')?.localTransform.getTranslation().z ?? 0.9;
+
+/// Lays a bolt with its tail at [tail], tip pointing along unit [dir].
+void _placeBolt(Node bolt, Vector3 tail, Vector3 dir, double scale) {
+  bolt.localTransform = Matrix4.compose(
+    tail,
+    Quaternion.fromTwoVectors(Vector3(0, 0, 1), dir),
+    Vector3.all(scale),
+  );
+}
+
 /// Render sync: the gun kicks on a shot (muzzle flash, smoke, sparks), the
-/// bolt flies with its trail and light, and the chain is a verlet rope from
-/// the gun to the bolt: loose and swinging while it pays out, lying on the
-/// sand, snapping taut on the reel, then winding back in.
+/// bolt flies tip first with its trail and light, and the chain is a verlet
+/// rope from the gun to the bolt's tail: loose and swinging while it pays
+/// out, lying on the sand, drawing in on the reel, then winding back and
+/// dragging the bolt home.
 void _drawHarpoon(World world) {
   final lib = world.resource<ModelLibrary>();
   final grid = world.tryResource<HeightGrid>();
@@ -76,6 +92,7 @@ void _drawHarpoon(World world) {
           ),
         );
       root.add(bolt);
+      final tip = _boltTip(bolt) * harpoonBoltScale;
       final links = <Node>[
         for (var i = 0; i < harpoonChainPoints - 1; i++)
           lib.instance('chain_link')..visible = false,
@@ -85,7 +102,7 @@ void _drawHarpoon(World world) {
       world.spawn([NodeRef(root)], ownedBy: entity);
       world.add(
         entity,
-        HarpoonVisual(bolt, links, ChainRope(harpoonChainPoints)),
+        HarpoonVisual(bolt, tip, links, ChainRope(harpoonChainPoints)),
       );
       return;
     }
@@ -102,12 +119,16 @@ void _drawHarpoon(World world) {
             t.z + fz0 * harpoonMuzzleForward,
           );
 
-    // The shot: kick, flash, smoke and sparks out of the muzzle.
-    final fired = state == HarpoonMode.flying && !visual.rope.live;
+    // The shot: kick, flash, smoke and sparks out of the muzzle. A shot
+    // while the last chain still winds in starts it afresh.
+    final rope = visual.rope;
+    final fired =
+        state == HarpoonMode.flying && (!rope.live || visual.retract > 0);
     if (fired) {
       visual
         ..recoil = 1
-        ..retract = 0;
+        ..retract = 0
+        ..slack = harpoonChainSlackFlying;
       visual.rope
         ..reset(muzzle)
         ..live = true;
@@ -130,61 +151,67 @@ void _drawHarpoon(World world) {
           ..rotateX(-harpoonGunPitch * visual.recoil));
     }
 
-    final out = state == HarpoonMode.flying || state == HarpoonMode.reeling;
-    visual.bolt.visible = out;
-    if (out) {
-      final dir = state == HarpoonMode.flying
-          ? harpoon.velocity.normalized()
-          : (harpoon.bolt - muzzle).normalized();
-      if (dir.length2 > 0.5) {
-        visual.bolt.localTransform = Matrix4.compose(
-          harpoon.bolt,
-          Quaternion.fromTwoVectors(Vector3(0, 0, -1), dir),
-          Vector3.all(harpoonVisualScale),
-        );
-      }
-    }
-
-    // The chain's far end: the bolt, or winding back to the gun.
-    final rope = visual.rope;
     if (!rope.live) {
+      visual.bolt.visible = false;
       for (final link in visual.links) {
         link.visible = false;
       }
       return;
     }
-    Vector3 end;
-    double slack;
+    final out = state == HarpoonMode.flying || state == HarpoonMode.reeling;
+    final facing = Vector3(fx0, 0, fz0);
     if (out) {
-      end = harpoon.bolt.clone();
-      slack = switch (state) {
+      // Out: the bolt's tip is the harpoon's point; the chain pays out to
+      // its tail, the slack easing as it flies, strikes and reels.
+      final dir = state == HarpoonMode.flying
+          ? harpoon.velocity.normalized()
+          : (harpoon.bolt - muzzle).normalized();
+      if (dir.length2 < 0.5) dir.setFrom(facing);
+      final tail = harpoon.bolt - dir * visual.tip;
+      final slack = switch (state) {
         HarpoonMode.reeling => harpoon.hooked == null
             ? harpoonChainSlackHooked
             : harpoonChainSlackReeling,
         _ => harpoonChainSlackFlying,
       };
+      visual
+        ..slack = smoothTo(visual.slack, slack, dt, harpoonChainSlackHalfLife)
+        ..length = math.max((tail - muzzle).length * visual.slack, 0.05);
+      _stepRope(rope, dt, muzzle, tail, visual.length, ground);
+      _placeBolt(visual.bolt, tail, dir, harpoonBoltScale);
     } else {
+      // Done: the bolt hangs where it struck a beat (a miss just drops),
+      // then is let go and the chain winds in, dragging it back over the
+      // sand.
       visual.retract += dt;
-      final f = (visual.retract / harpoonChainRetractSeconds).clamp(0.0, 1.0);
-      end = rope.points.last + (muzzle - rope.points.last) * (f * f);
-      slack = 1.0;
-      if (f >= 1) {
+      final missed = harpoon.travelled >= harpoonRange - 1e-3;
+      final winding = visual.retract - (missed ? 0 : harpoonChainDwellSeconds);
+      if (winding > 0) {
+        final ramp = math.min(winding / harpoonChainWindRamp, 1.0);
+        visual.length -= harpoonChainWindSpeed * ramp * dt;
+      }
+      if (visual.length <= visual.tip) {
         rope.live = false;
+        visual.bolt.visible = false;
         for (final link in visual.links) {
           link.visible = false;
         }
         return;
       }
+      _stepRope(
+        rope,
+        dt,
+        muzzle,
+        rope.points.last.clone(),
+        visual.length,
+        ground,
+        pinEnd: winding <= 0,
+      );
+      final dir = (rope.points.last - rope.points[rope.count - 2]).normalized();
+      if (dir.length2 < 0.5) dir.setFrom(facing);
+      _placeBolt(visual.bolt, rope.points.last, dir, harpoonBoltScale);
     }
-    final span = (end - muzzle).length;
-    final segment = math.max(span * slack, 0.05) / (rope.count - 1);
-    // Small fixed sub-steps keep the rope stable through hitches.
-    var left = math.min(dt, 0.05);
-    while (left > 1e-5) {
-      final h = math.min(left, 1 / 120);
-      rope.step(h, muzzle, end, segment, ground);
-      left -= h;
-    }
+    visual.bolt.visible = true;
 
     // A link on every segment, along it, each turned a quarter from the
     // last so it reads as chain.
@@ -208,4 +235,24 @@ void _drawHarpoon(World world) {
         );
     }
   });
+}
+
+/// Steps [rope] of total [length] from [start] to [end] in small fixed
+/// sub-steps, which keep it stable through hitches.
+void _stepRope(
+  ChainRope rope,
+  double dt,
+  Vector3 start,
+  Vector3 end,
+  double length,
+  double Function(double x, double z) ground, {
+  bool pinEnd = true,
+}) {
+  final segment = length / (rope.count - 1);
+  var left = math.min(dt, 0.05);
+  while (left > 1e-5) {
+    final h = math.min(left, 1 / 120);
+    rope.step(h, start, end, segment, ground, pinEnd: pinEnd);
+    left -= h;
+  }
 }

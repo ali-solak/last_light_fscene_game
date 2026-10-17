@@ -34,16 +34,6 @@ const double islandLighthouseRadius = 3.6;
 const double islandSeaSize = 600;
 const int islandSeaSegments = 96;
 
-/// Ground fog planes ringing the shore: (x, z, size).
-const List<(double, double, double)> islandFogPlanes = [
-  (0, 40, 60),
-  (40, 0, 60),
-  (0, -40, 60),
-  (-40, 0, 60),
-  (28, 28, 40),
-];
-const double islandFogHeight = 0.7;
-
 /// Sky tint colours (dawn 0..1 drives sky.fmat).
 const double islandSkyTweenSeconds = 3.0;
 

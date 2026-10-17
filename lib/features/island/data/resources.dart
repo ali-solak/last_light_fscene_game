@@ -1,9 +1,70 @@
 part of '../island.dart';
 
-/// The raw island document. The composition root (or a test) parses
-/// `island.glb` and inserts it; the startup system builds everything else
-/// from it, so navigation works headless.
-final class IslandAsset(final GlbDocument document);
+/// What gameplay needs from `island.glb`, in engine space: every named
+/// node's world transform, and the collision and ground triangles (packed
+/// xyz, 9 floats each) with each ground triangle's mean palette U. The game
+/// reads it off the loaded model ([IslandAsset.fromModel]); a headless test,
+/// with no GPU to load models, builds it from the file. The startup system
+/// builds everything else from it, so navigation works headless.
+final class IslandAsset({
+  required final Map<String, Matrix4> transforms,
+  required final Float32List collision,
+  required final Float32List ground,
+  required final Float32List groundUs,
+}) {
+  factory IslandAsset.fromModel(Node island) {
+    final transforms = <String, Matrix4>{};
+    void walk(Node node) {
+      if (node.name.isNotEmpty) transforms[node.name] = node.globalTransform;
+      node.children.forEach(walk);
+    }
+
+    walk(island);
+    final collision = _mesh(island, 'collision');
+    final ground = _mesh(island, 'ground');
+    final uvs = ground?.texCoords;
+    return IslandAsset(
+      transforms: transforms,
+      collision: _packed(collision),
+      ground: _packed(ground),
+      groundUs: Float32List.fromList([
+        for (final t in ground?.triangles ?? const <MeshTriangle>[])
+          uvs == null ? 0 : (uvs[t.a * 2] + uvs[t.b * 2] + uvs[t.c * 2]) / 3,
+      ]),
+    );
+  }
+
+  bool hasNode(String name) => transforms.containsKey(name);
+
+  /// The node's world transform, or null if absent.
+  Matrix4? worldTransform(String name) => transforms[name];
+
+  /// The node's world position, or null if absent.
+  Vector3? position(String name) => transforms[name]?.getTranslation();
+
+  /// The node's yaw about +Y.
+  double yaw(String name) {
+    final m = transforms[name];
+    if (m == null) return 0;
+    // Local −Z (the authored forward) in world space.
+    final f = m.transform3(Vector3(0, 0, -1)) - m.getTranslation();
+    return math.atan2(-f.x, -f.z);
+  }
+
+  /// The named node's geometry in world space, or null.
+  static MeshData? _mesh(Node island, String name) {
+    final node = island.getChildByName(name);
+    return node?.extractMeshData(transform: node.globalTransform);
+  }
+
+  static Float32List _packed(MeshData? mesh) => Float32List.fromList([
+    for (final t in mesh?.triangles ?? const <MeshTriangle>[]) ...[
+      t.pa.x, t.pa.y, t.pa.z, //
+      t.pb.x, t.pb.y, t.pb.z, //
+      t.pc.x, t.pc.y, t.pc.z,
+    ],
+  ]);
+}
 
 /// 1 m cells over 96×96 m: ground height, slope and walkability, rasterised
 /// from the island's `collision` mesh. Sampled bilinearly.
@@ -306,7 +367,6 @@ final class Materials(
 final class IslandScenery {
   Node? sea;
   Node? ground;
-  final List<Node> fog = [];
   DirectionalLight? moonLight;
 
   /// 0..1 lightning flash, written by the weather; brightens the moon.

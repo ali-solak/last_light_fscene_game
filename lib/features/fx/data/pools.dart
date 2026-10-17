@@ -32,7 +32,7 @@ enum FxKind {
   /// Tumbling wood splinters.
   splinter,
 
-  /// Big slow banks of sea fog drifting over the ground.
+  /// Sea fog: big soft puffs spawned in banks that drift as one.
   fog,
 
   /// Rain streaks.
@@ -175,16 +175,19 @@ final Map<FxKind, FxSpec> fxSpecs = {
     additive: false,
     softDepth: 0.5,
   ),
+  // Life and speed are set per bank (life: seconds, speed: m/s). No drag
+  // and no wind carry, so a bank's puffs keep the velocity they were given
+  // and travel together; a little turbulence billows them.
   .fog: FxSpec(
-    capacity: 96,
-    life: (9, 14),
-    speed: (0.05, 0.25),
-    size: (5, 8.5),
+    capacity: 192,
+    life: (0.9, 1.0),
+    speed: (1, 1),
+    size: (6, 10),
     tint: Vector3(0.32, 0.4, 0.55),
-    envelope: const [(0, 1, 0), (0.25, 1, 0.12), (0.75, 1, 0.1), (1, 1, 0)],
-    drag: 0.4,
-    spin: 0.05,
-    grow: const [(0, 0.8), (1, 1.4)],
+    envelope: const [(0, 1, 0), (0.15, 1, 0.13), (0.85, 1, 0.11), (1, 1, 0)],
+    turbulence: 0.15,
+    spin: 0.03,
+    grow: const [(0, 0.85), (1, 1.3)],
     flipbook: 16,
     additive: false,
     softDepth: 2.0,

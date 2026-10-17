@@ -27,12 +27,13 @@ Beach nightFirstBeach(int night) =>
 
 /// The steps of [night]'s plan, in order.
 List<NightStep> nightSteps(int night, math.Random rng) {
-  final scale = 1 + nightCountGrowth * (night - 1);
+  final scale = 1 + nightHordeGrowth * (night - 1);
   int n(int min, int max) =>
       ((min + rng.nextInt(max - min + 1)) * scale).round();
 
+  // Scuttlers come ashore as a horde, swelling night by night.
   Land scuttlers(Beach beach, [Map<CrabType, int> extra = const {}]) =>
-      Land(beach, {.scuttler: n(6, 8), ...extra});
+      Land(beach, {.scuttler: n(12, 16), ...extra});
 
   return switch (night) {
     1 => [

@@ -39,8 +39,8 @@ void _dressLamps(World world) {
   world.query<LampPost>().without<LampModel>().each((entity, _) {
     if (!lib.has('lamp_post')) return;
     final node = lib.instance('lamp_post');
-    final on = lib.find(node, 'lantern_glass');
-    final off = lib.find(node, 'lantern_glass_off');
+    final on = node.getChildByName('lantern_glass');
+    final off = node.getChildByName('lantern_glass_off');
     final glass = materials?.take('lamp_glass');
     if (on != null && glass != null) assignNode(on, glass);
     final light = PointLight(

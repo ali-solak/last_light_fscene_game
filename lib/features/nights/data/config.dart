@@ -2,8 +2,9 @@ part of '../nights.dart';
 
 const int nightCount = 10;
 
-/// Wave sizes grow ×(1 + 0.12 × (night − 1)).
-const double nightCountGrowth = 0.12;
+/// The scuttler horde (12–16 a landing on night 1) grows
+/// ×(1 + 0.25 × (night − 1)).
+const double nightHordeGrowth = 0.25;
 
 /// The dusk title card.
 const double nightDuskSeconds = 2.5;

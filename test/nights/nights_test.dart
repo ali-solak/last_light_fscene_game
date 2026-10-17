@@ -16,7 +16,7 @@ import '../support/harness.dart';
 
 void main() {
   group('nights', () {
-    test('night 1 lands three waves of 6–8 scuttlers on the north beach', () {
+    test('night 1 lands three waves of 12–16 scuttlers on the north beach', () {
       final waves = <WaveLanded>[];
       final started = <NightStarted>[];
       final game = makeGame(probes: [collect(waves), collect(started)])
@@ -30,7 +30,7 @@ void main() {
       expect(waves, hasLength(3));
       for (final wave in waves) {
         expect(wave.beach, Beach.north);
-        expect(wave.count, inInclusiveRange(6, 8));
+        expect(wave.count, inInclusiveRange(12, 16));
       }
     });
 
@@ -147,7 +147,8 @@ void main() {
       final game = makeGame(probes: [collect(killed)])
         ..toDawnBuild()
         ..toNight();
-      // He holds the lighthouse's north side and works the lantern.
+      // He holds the lighthouse's north side: the lantern's focus on the
+      // nearest crab up close, the harpoon further out.
       game.placeKeeper(0, 5.5);
       final buttons = game.world.buttons<KeeperAction>();
       for (var i = 0; i < 60 * 140 && game.status == GameStatus.night; i++) {
@@ -163,9 +164,17 @@ void main() {
         if (nearest != null) {
           final t = game.world.get<SceneTransform>(nearest!);
           game.aimAt(t.x, t.z);
-          buttons.setPressed(KeeperAction.focus, best < 9 * 9);
+          final close = best < 9 * 9;
+          buttons.setPressed(KeeperAction.focus, close);
+          // Press and release on alternate frames: a shot whenever ready.
+          buttons.setPressed(
+            KeeperAction.harpoon,
+            !close && i.isEven && best < 14 * 14,
+          );
         } else {
-          buttons.release(KeeperAction.focus);
+          buttons
+            ..release(KeeperAction.focus)
+            ..release(KeeperAction.harpoon);
         }
         game.frame();
       }

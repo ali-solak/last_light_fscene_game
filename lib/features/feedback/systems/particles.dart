@@ -4,7 +4,7 @@ void installParticles(GameBuilder game) {
   game.addSystem(
     Schedules.update,
     _burstParticles,
-    reads: {SceneTransform, Crab},
+    reads: {SceneTransform, Crab, Keeper},
     inSet: GameSets.feedback,
     runIf: hasResource<Fx>(),
   );
@@ -24,6 +24,30 @@ void _burstParticles(World world) {
       ..burst(FxKind.ember, p, count: 30, spread: 1.4, speed: 2.4)
       ..burst(FxKind.fire, p, count: 6, spread: 0.8, speed: 2.5, size: 0.7)
       ..burst(FxKind.smoke, p + Vector3(0, 0.4, 0), count: 2, size: 0.6);
+  }
+  // A hunter's leap kicks up sand.
+  for (final leap in world.events<CrabLeapt>()) {
+    final t = world.tryGet<SceneTransform>(leap.crab);
+    if (t == null) continue;
+    fx.burst(FxKind.dust, Vector3(t.x, t.y, t.z), count: 5, spread: 0.3,
+        dir: Vector3(0, 0.4, 0), speed: 0.9, radius: 0.2, size: 0.45);
+  }
+
+  // A bite on the keeper: a flash and a spray off the side it came from.
+  final keeper = world.query<SceneTransform>().having<Keeper>().firstOrNull;
+  for (final bite in world.events<KeeperBitten>()) {
+    if (keeper == null) break;
+    final k = keeper.$2;
+    final away = Vector3(k.x - bite.fromX, 0, k.z - bite.fromZ);
+    if (away.length2 < 1e-6) away.setValues(0, 0, 1);
+    away.normalize();
+    final p = Vector3(k.x - away.x * 0.35, k.y + 0.9, k.z - away.z * 0.35);
+    fx
+      ..burst(FxKind.flash, p, count: 1, size: bite.hurt ? 1.4 : 0.7,
+          tint: Vector3(3.0, 0.6, 0.4))
+      ..burst(FxKind.droplet, p, count: bite.hurt ? 26 : 10, spread: 0.9,
+          dir: away + Vector3(0, 0.6, 0), speed: bite.hurt ? 1.6 : 1.0,
+          tint: Vector3(0.7, 0.08, 0.06));
   }
   for (final swing in world.events<LampBashed>()) {
     final p = swing.origin + Vector3(swing.dirX, -0.2, swing.dirZ) * 1.1;

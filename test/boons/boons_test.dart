@@ -61,10 +61,9 @@ void main() {
         closeTo(lightFocusDps * hotWickMultiplier, 1e-9));
   });
 
-  test('Kindling: lit crabs keep burning after the light', () {
-    stage('kindling');
-    game.world.spawn([LampPost(), SceneTransform(10, 0, 20)]);
-    final crab = game.crab(CrabType.basher, 10, 20);
+  test('Kindling: crabs the beam lights keep burning after it', () {
+    stage('kindling', beam: true);
+    final crab = game.crab(CrabType.basher, 15, 0);
     game.seconds(0.3);
     expect(game.world.has<Burning>(crab), isTrue);
     game.world.get<SceneTransform>(crab).setTranslation(30, 0, 30);
@@ -249,7 +248,10 @@ void main() {
     game.world.spawn([Mirror(turnXtoZ), SceneTransform(10, 0, 0)]);
     final crab = game.crab(CrabType.basher, 10, 6);
     game.frame();
-    expect(game.world.get<LightExposure>(crab).beamDps, closeTo(45, 1e-9));
+    expect(
+      game.world.get<LightExposure>(crab).beamDps,
+      closeTo(lightBeamDps * sunfireMultiplier, 1e-9),
+    );
   });
 
   test('Brine Wave: Undertow also slows crabs for 2 s', () {

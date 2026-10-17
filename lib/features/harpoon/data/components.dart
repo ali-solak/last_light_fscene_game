@@ -28,8 +28,10 @@ final class Harpoon {
 }
 
 /// The bolt and chain nodes, the chain's verlet rope, and the gun's kick.
+/// [tip] is the bolt model's tip along its +Z, out from the chain's anchor.
 final class HarpoonVisual(
   final Node bolt,
+  final double tip,
   final List<Node> links,
   final ChainRope rope,
 ) {
@@ -39,13 +41,18 @@ final class HarpoonVisual(
   /// The gun's resting local transform, captured once.
   Matrix4? gunRest;
 
-  /// Seconds the chain has been winding back in.
+  /// Seconds since the bolt came to rest and the chain began winding in.
   double retract = 0;
+
+  /// The chain's slack (eased toward the mode's) and its paid-out length.
+  double slack = harpoonChainSlackFlying;
+  double length = 0;
 }
 
 /// A chain of point masses (verlet), pinned at the gun and at the bolt:
 /// it pays out loose while the bolt flies, sags and swings as the keeper
-/// moves, lies on the ground, and snaps taut while reeling.
+/// moves, lies on the ground, and draws in while reeling. Winding back,
+/// the far end is let go so the chain drags the bolt home.
 final class ChainRope(final int count) {
   late final List<Vector3> points = [
     for (var i = 0; i < count; i++) Vector3.zero(),
@@ -64,19 +71,22 @@ final class ChainRope(final int count) {
   }
 
   /// One step: inertia and gravity, then [iterations] passes of length
-  /// constraints with both ends pinned, the ground pushing up underneath.
+  /// constraints with the start pinned (and the end, if [pinEnd]), the
+  /// ground pushing up underneath.
   void step(
     double dt,
     Vector3 start,
     Vector3 end,
     double segment,
     double Function(double x, double z) ground, {
+    bool pinEnd = true,
     int iterations = 10,
   }) {
     if (dt <= 0) return;
     final g = harpoonChainGravity * dt * dt;
     final keep = harpoonChainDamping;
-    for (var i = 1; i < count - 1; i++) {
+    final free = pinEnd ? count - 1 : count;
+    for (var i = 1; i < free; i++) {
       final p = points[i], q = previous[i];
       final vx = (p.x - q.x) * keep, vy = (p.y - q.y) * keep;
       final vz = (p.z - q.z) * keep;
@@ -88,14 +98,14 @@ final class ChainRope(final int count) {
     }
     for (var it = 0; it < iterations; it++) {
       points.first.setFrom(start);
-      points.last.setFrom(end);
+      if (pinEnd) points.last.setFrom(end);
       for (var i = 0; i < count - 1; i++) {
         final a = points[i], b = points[i + 1];
         final dx = b.x - a.x, dy = b.y - a.y, dz = b.z - a.z;
         final d = math.sqrt(dx * dx + dy * dy + dz * dz);
         if (d < 1e-6 || d <= segment) continue;
         final push = (d - segment) / d * 0.5;
-        final pinA = i == 0, pinB = i + 1 == count - 1;
+        final pinA = i == 0, pinB = pinEnd && i + 1 == count - 1;
         final wa = pinA ? 0.0 : (pinB ? 1.0 : 0.5) * 2;
         final wb = pinB ? 0.0 : (pinA ? 1.0 : 0.5) * 2;
         a
@@ -107,7 +117,7 @@ final class ChainRope(final int count) {
           ..y -= dy * push * wb
           ..z -= dz * push * wb;
       }
-      for (var i = 1; i < count - 1; i++) {
+      for (var i = 1; i < free; i++) {
         final p = points[i];
         final floor = ground(p.x, p.z) + harpoonChainThickness;
         if (p.y < floor) {
@@ -121,7 +131,7 @@ final class ChainRope(final int count) {
       }
     }
     points.first.setFrom(start);
-    points.last.setFrom(end);
+    if (pinEnd) points.last.setFrom(end);
   }
 }
 
@@ -131,5 +141,5 @@ final class Dart(final Vector3 position, final Vector3 velocity) {
   double travelled = 0;
 }
 
-/// A dart's model.
-final class DartVisual(final Node node);
+/// A dart's model, and its tip out from the model's origin.
+final class DartVisual(final Node node, final double tip);

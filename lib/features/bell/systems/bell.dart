@@ -64,7 +64,7 @@ void _swingBell(World world) {
       final node = lib.instance('bell');
       world
         ..add(entity, NodeRef(node))
-        ..add(entity, BellModel(node, lib.find(node, 'bell_pivot')));
+        ..add(entity, BellModel(node, node.getChildByName('bell_pivot')));
       return;
     }
     final fade = math.max(0.0, 1 - swing.time / bellSwingSeconds);

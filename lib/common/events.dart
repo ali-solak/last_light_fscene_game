@@ -96,8 +96,24 @@ final class const ShellCracked(final Entity entity);
 /// The lamp burnt a crab's shroud through: it reels, exposed.
 final class const CrabExposed(final Entity entity);
 
-/// A crab's attack connected with the keeper (its clip event, in range).
-final class const CrabAttackLanded(final Entity crab, final int hearts);
+/// A crab's attack connected with the keeper (its clip event, in range). A
+/// swarmling's is a [nibble]: enough of them cost a heart.
+final class const CrabAttackLanded(
+  final Entity crab,
+  final int hearts, {
+  final bool nibble = false,
+});
+
+/// A hunter leapt at the keeper.
+final class const CrabLeapt(final Entity crab);
+
+/// A crab's bite got through to the keeper, from ([fromX], [fromZ]); [hurt]
+/// when it cost a heart (else a nibble).
+final class const KeeperBitten(
+  final double fromX,
+  final double fromZ,
+  final bool hurt,
+);
 
 /// An area slam (basher, Tide Mother): hurts within [damageRadius] and
 /// topples mirrors and snuffs lamps within [toppleRadius].
@@ -247,6 +263,8 @@ void configureEvents(GameBuilder game) {
     ..configureEvent<FlameDrained>()
     ..configureEvent<FlameLow>()
     ..configureEvent<KeeperHit>()
+    ..configureEvent<KeeperBitten>()
+    ..configureEvent<CrabLeapt>()
     ..configureEvent<KeeperDowned>()
     ..configureEvent<KeeperRespawned>()
     ..configureEvent<JumpStarted>()

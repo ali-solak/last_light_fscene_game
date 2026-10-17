@@ -25,9 +25,9 @@ void installIslandBuild(GameBuilder game) {
 
 /// Startup, headless: everything gameplay needs from `island.glb`.
 void _buildIsland(World world) {
-  final doc = world.resource<IslandAsset>().document;
-  final grid = HeightGrid.fromTriangles(doc.triangles('collision'))
-    ..paintGround(doc.triangles('ground'), doc.triangleUs('ground'));
+  final doc = world.resource<IslandAsset>();
+  final grid = HeightGrid.fromTriangles(doc.collision)
+    ..paintGround(doc.ground, doc.groundUs);
   world.insert(grid);
 
   Vector3 at(String name) => doc.position(name) ?? Vector3.zero();

@@ -57,36 +57,45 @@ class _Labelled extends StatelessWidget {
   );
 }
 
-/// Health: five short bars; the last one standing turns red.
+/// Health: five short bars; the last one standing turns red, and wears down
+/// as swarmlings nibble.
 class HeartsRow extends StatelessWidget {
   const HeartsRow({super.key});
 
   @override
-  Widget build(BuildContext context) => EntityBuilder<Hearts, int>.matching(
-    where: (q) => q.having<Keeper>(),
-    select: (h) => h.current,
-    absent: const SizedBox.shrink(),
-    builder: (context, hearts) => _Labelled(
-      Strings.healthLabel,
-      Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          for (var i = 0; i < keeperHearts; i++)
-            AnimatedContainer(
-              duration: Motion.standard,
-              width: 22,
-              height: 3,
-              margin: const EdgeInsets.only(right: 4),
-              color: i >= hearts
-                  ? Palette.faint
-                  : hearts == 1
-                  ? Palette.danger
-                  : Palette.bone,
+  Widget build(BuildContext context) =>
+      EntityBuilder<Hearts, (int, int)>.matching(
+        where: (q) => q.having<Keeper>(),
+        select: (h) => (h.current, h.nibbles),
+        absent: const SizedBox.shrink(),
+        builder: (context, state) {
+          final (hearts, nibbles) = state;
+          return _Labelled(
+            Strings.healthLabel,
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                for (var i = 0; i < keeperHearts; i++)
+                  AnimatedContainer(
+                    duration: Motion.standard,
+                    width: 22,
+                    height: 3,
+                    margin: const EdgeInsets.only(right: 4),
+                    color: i >= hearts
+                        ? Palette.faint
+                        : Color.lerp(
+                            hearts == 1 ? Palette.danger : Palette.bone,
+                            Palette.faint,
+                            i == hearts - 1
+                                ? nibbles / keeperNibblesPerHeart * 0.75
+                                : 0,
+                          ),
+                  ),
+              ],
             ),
-        ],
-      ),
-    ),
-  );
+          );
+        },
+      );
 }
 
 /// By the oil, on a keyboard: what the lamp keys do, or how long until a

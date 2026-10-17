@@ -10,7 +10,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:vector_math/vector_math.dart';
 
 import 'app.dart';
-import 'assets/glb.dart';
 import 'assets/model_library.dart';
 import 'common/settings.dart';
 import 'features/fx/fx.dart' show loadFxTextures;
@@ -43,15 +42,13 @@ Future<void> main() async {
     }
     final save = SaveStore((data) => prefs.setString(_saveKey, jsonEncode(data)));
 
-    final (models, island, materials, fxTextures) = await (
+    final (models, materials, fxTextures) = await (
       loadModelLibrary(),
-      rootBundle
-          .load('assets/models/environment/island.glb')
-          .then((data) => IslandAsset(GlbDocument.parse(data.buffer.asUint8List()))),
       loadMaterials(),
       loadFxTextures(),
     ).wait;
 
+    final island = IslandAsset.fromModel(models.instance('island'));
     final scene = Scene();
     final game = await SceneGame.boot(
       scene: scene,

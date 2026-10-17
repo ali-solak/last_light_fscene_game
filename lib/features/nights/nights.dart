@@ -11,7 +11,8 @@ import '../../common/events.dart';
 import '../../common/sets.dart';
 import '../../common/settings.dart';
 import '../../common/states.dart';
-import '../crabs/crabs.dart' show Crab, Dead, crabBundle;
+import '../crabs/crabs.dart'
+    show Crab, Dead, crabBundle, crabHordeCap, crabHordeTypes;
 import '../island/island.dart';
 
 part 'data/config.dart';

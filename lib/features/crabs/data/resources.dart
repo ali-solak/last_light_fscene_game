@@ -237,7 +237,8 @@ final class SpatialGrid {
 
 /// Scratch reused by the crab systems (no per-step allocation).
 final class CrabScratch {
-  final Int32List near = Int32List(64);
+  final Int32List near = Int32List(crabNeighbourMax);
+  final math.Random rng = math.Random(17);
   final Vector2 dir = Vector2.zero();
   final Vector3 point = Vector3.zero();
 

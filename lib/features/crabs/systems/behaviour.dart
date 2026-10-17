@@ -62,6 +62,10 @@ void installCrabBehaviour(GameBuilder game) {
       reads: {
         Crab,
         LightExposure,
+        KeeperBody,
+        FleesLight,
+        SeeksLight,
+        HuntsKeeper,
         Keeper,
         KeeperBrain,
         Underground,
@@ -262,10 +266,9 @@ void _respondToLight(World world) {
     final state = brain.mode.state;
     if (state != CrabMode.advancing && state != CrabMode.cowering) return;
     if (world.has<Underground>(entity)) return;
-    final threshold =
-        world.tryGet<CowerThreshold>(entity)?.value ?? crabCowerThreshold;
-    final lit =
-        (world.has<FleesLight>(entity) && light.intensity >= threshold) ||
+    // Only a beam makes a crab cower, the lighthouse's or the lantern's
+    // focus; the glow and lamps slow it instead (steering).
+    final lit = (world.has<FleesLight>(entity) && (light.beam || light.focus)) ||
         world.has<Dazzled>(entity);
     if (lit) {
       brain.outOfLight = 0;
@@ -346,13 +349,14 @@ void _steerCrabs(World world) {
   final cx = flow.centreX, cz = flow.centreZ;
   final dir = scratch.dir;
   final obstacles = world.resource<FlowObstacles>();
-  final keeperRow = world.query2<KeeperBrain, SceneTransform>()
+  final lightMap = world.tryResource<LightMap>();
+  final keeperRow = world.query3<KeeperBrain, SceneTransform, KeeperBody>()
       .having<Keeper>()
       .firstOrNull;
-  final keeper = keeperRow == null ||
-          keeperRow.$2.mode.state == KeeperMode.downed
-      ? null
-      : keeperRow.$3;
+  final keeperDown =
+      keeperRow == null || keeperRow.$2.mode.state == KeeperMode.downed;
+  final keeper = keeperDown ? null : keeperRow.$3;
+  final keeperBody = keeperDown ? null : keeperRow.$4;
 
   world.query4<CrabBrain, CrabBody, SceneTransform, LightExposure>()
       .without<Dead>()
@@ -372,6 +376,22 @@ void _steerCrabs(World world) {
     if (body.dazed > 0) {
       body.dazed -= dt;
       body.velocity.setZero();
+      return;
+    }
+
+    // Mid-leap: fly the arc at the keeper, then land ready to bite.
+    body.leapCooldown -= dt;
+    if (body.leap > 0) {
+      body.leap -= dt;
+      _moveOn(grid, t, body.leapX * dt, body.leapZ * dt, lowTide);
+      final f = 1 - (body.leap / crabLeapSeconds).clamp(0.0, 1.0);
+      t.y = grid.sample(t.x, t.z) + crabLeapHeight * 4 * f * (1 - f);
+      body.velocity.setValues(body.leapX, 0, body.leapZ);
+      _face(body, dt);
+      if (body.leap <= 0) {
+        t.y = grid.sample(t.x, t.z);
+        brain.cooldown = 0;
+      }
       return;
     }
 
@@ -395,6 +415,17 @@ void _steerCrabs(World world) {
 
     final underground = world.has<Underground>(entity);
     var speed = underground ? crabBurrowSpeed : body.speed;
+    // A beam bogs a hunter down (the rest cower in it); the lantern's glow
+    // and lamps' light bog any crab down but a light-seeker.
+    final hunter = world.has<HuntsKeeper>(entity);
+    if (!underground) {
+      if (light.beam || light.focus) {
+        speed *= crabBeamSlow;
+      } else if (light.intensity >= crabCowerThreshold &&
+          !world.has<SeeksLight>(entity)) {
+        speed *= crabLightSlow;
+      }
+    }
     if (brine && light.lit && !underground) speed *= crabBrineSlow;
     if (world.has<Slowed>(entity)) speed *= crabSlowFactor;
 
@@ -403,24 +434,75 @@ void _steerCrabs(World world) {
     var stop = false;
     final target = brain.target;
     final tt = target == null ? null : world.tryGet<SceneTransform>(target);
+    final aggro = hunter ? crabHunterAggroRadius : crabAggroRadius;
     final hunt = keeper != null &&
         !underground &&
         tt == null &&
-        light.intensity < crabCowerThreshold &&
-        distSq2(t.x, t.z, keeper.x, keeper.z) <=
-            crabAggroRadius * crabAggroRadius;
+        (hunter || light.intensity < crabCowerThreshold) &&
+        distSq2(t.x, t.z, keeper.x, keeper.z) <= aggro * aggro;
+    // The quarry the horde wheels round: what it is after.
+    double qx = cx, qz = cz;
     if (tt != null && !underground) {
+      (qx, qz) = (tt.x, tt.z);
       dir.setValues(tt.x - t.x, tt.z - t.z);
       final d = dir.length;
       if (d > 1e-4) dir.scale(1 / d);
       stop = d < body.size * 0.5;
     } else if (hunt) {
+      (qx, qz) = (keeper.x, keeper.z);
       dir.setValues(keeper.x - t.x, keeper.z - t.z);
       final d = dir.length;
       if (d > 1e-4) dir.scale(1 / d);
-      speed *= crabHuntSpeed;
+      speed *= hunter ? crabHunterSpeed : crabHuntSpeed;
+      // Close enough, out of the lighthouse beam: leap at where he is
+      // heading, through his lantern's focus if need be.
+      if (hunter &&
+          body.leapCooldown <= 0 &&
+          d >= crabLeapMin &&
+          d <= crabLeapMax &&
+          !light.beam &&
+          keeperBody != null) {
+        final reach = body.size * crabAttackReachFactor;
+        final lx = keeper.x + keeperBody.velocity.x * crabLeapSeconds * 0.5;
+        final lz = keeper.z + keeperBody.velocity.z * crabLeapSeconds * 0.5;
+        final ox = lx - t.x, oz = lz - t.z;
+        final od = math.max(math.sqrt(ox * ox + oz * oz), 1e-3);
+        final travel = math.max(od - reach, 0.0);
+        body
+          ..leap = crabLeapSeconds
+          ..leapX = ox / od * travel / crabLeapSeconds
+          ..leapZ = oz / od * travel / crabLeapSeconds
+          ..leapCooldown = crabLeapCooldownMin +
+              scratch.rng.nextDouble() *
+                  (crabLeapCooldownMax - crabLeapCooldownMin);
+        world.emit(CrabLeapt(entity));
+        return;
+      }
     } else {
       flow.direction(t.x, t.z, dir, burrow: underground);
+    }
+    // The hurricane: closing in, everyone wheels the same way round the
+    // quarry, so the mass circles and spirals in; but never wheels into a
+    // beam.
+    if (!underground && !stop) {
+      final ox = qx - t.x, oz = qz - t.z;
+      final d = math.sqrt(ox * ox + oz * oz);
+      final w = crabSwirl *
+          ((d - crabSwirlNear) / 2).clamp(0.0, 1.0) *
+          ((crabSwirlFar - d) / 4).clamp(0.0, 1.0);
+      if (w > 0) {
+        var sx = dir.x - oz / d * w, sz = dir.y + ox / d * w;
+        final len = math.sqrt(sx * sx + sz * sz);
+        if (len > 1e-4) (sx, sz) = (sx / len, sz / len);
+        final ahead = lightMap?.flagsAt(
+              t.x + sx * crabSwirlLookAhead,
+              t.z + sz * crabSwirlLookAhead,
+            ) ??
+            0;
+        if (ahead & (LightFlags.beam | LightFlags.focus) == 0) {
+          dir.setValues(sx, sz);
+        }
+      }
     }
     // Ease the wanted heading toward the new way (a fresh crab takes it
     // at once).
@@ -470,11 +552,12 @@ void _steerCrabs(World world) {
       dir.setValues(dir.x * c - dir.y * sn, dir.x * sn + dir.y * c);
     }
 
-    // The kit's steering: seek along the way, shove apart, and fall in
-    // with the neighbours' heading, so the horde moves as a mass.
+    // The kit's steering: seek along the way, shove apart, fall in with
+    // the neighbours' heading and close up on them, so the horde moves as
+    // a mass.
     final n = body.sidestep > 0
         ? 0
-        : spatial.near(t.x, t.z, body.size * 2.2, scratch.near);
+        : spatial.near(t.x, t.z, crabNeighbourRadius, scratch.near);
     scratch.neighbours(spatial, n, entity);
     final pos = Vector3(t.x, 0, t.z);
     final vel = Vector3(body.velocity.x, 0, body.velocity.z);
@@ -504,7 +587,15 @@ void _steerCrabs(World world) {
               maxSpeed: speed,
               maxForce: crabSteerForce,
             ) *
-            crabAlignmentWeight);
+            crabAlignmentWeight)
+        ..add(Steering.cohesion(
+              pos,
+              vel,
+              scratch.positions,
+              maxSpeed: speed,
+              maxForce: crabSteerForce,
+            ) *
+            crabCohesionWeight);
     }
     // The kit's forces are velocity corrections; ease toward them.
     vel.add(force * (crabSteerResponse * dt));
@@ -661,7 +752,12 @@ void _crabAttacks(World world) {
           final reach = body.size * crabAttackReachFactor + crabKeeperRadius;
           if (distSq2(t.x, t.z, keeper.$3.x, keeper.$3.z) <=
               math.pow(reach * crabAttackStillInRange, 2)) {
-            world.emit(CrabAttackLanded(entity, 1));
+            // A swarmling only nibbles; enough nibbles cost a heart.
+            world.emit(CrabAttackLanded(
+              entity,
+              1,
+              nibble: crabHordeTypes.contains(crab.type),
+            ));
           }
         }
         if (brain.mode.elapsed >= (info?.seconds ?? 0.6)) {
@@ -671,7 +767,7 @@ void _crabAttacks(World world) {
         }
       case CrabMode.advancing || CrabMode.cowering
           when keeperUp && brain.cooldown <= 0 && !world.has<Boss>(entity):
-        if (world.has<Underground>(entity)) return;
+        if (world.has<Underground>(entity) || body.leap > 0) return;
         final reach = body.size * crabAttackReachFactor + crabKeeperRadius;
         if (distSq2(t.x, t.z, keeper.$3.x, keeper.$3.z) <= reach * reach) {
           final dx = keeper.$3.x - t.x, dz = keeper.$3.z - t.z;

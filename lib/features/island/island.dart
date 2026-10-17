@@ -11,7 +11,6 @@ import 'package:flutter_scene/scene.dart';
 import 'package:scene_dash_v2/scene_dash_v2.dart';
 import 'package:vector_math/vector_math.dart';
 
-import '../../assets/glb.dart';
 import '../../assets/model_library.dart';
 import '../../common/events.dart';
 import '../../common/grid.dart';

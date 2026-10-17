@@ -27,7 +27,13 @@ const double weatherRainPerSecond = 520;
 const double weatherRainBox = 14;
 const double weatherRainHeight = 9;
 
-// Sea fog banks drift round the camera, this many at a time.
-const int weatherFogBanks = 26;
-const double weatherFogNear = 6;
-const double weatherFogFar = 34;
+/// Sea fog rolls in as banks: one every this many seconds (night; half as
+/// often by day), this many puffs within this radius, born this far upwind
+/// of the camera (scattered this far across the wind) and carried this far
+/// past it, drifting at this speed (m/s) times the wind's force.
+const double weatherFogBankEvery = 3.5;
+const int weatherFogBankPuffs = 14;
+const double weatherFogBankRadius = 7;
+const double weatherFogBankUpwind = 34;
+const double weatherFogBankAcross = 26;
+const double weatherFogBankDrift = 3;

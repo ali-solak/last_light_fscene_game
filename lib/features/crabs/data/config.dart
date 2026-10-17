@@ -13,7 +13,7 @@ final class const CrabStats(
 }
 
 const Map<CrabType, CrabStats> crabStats = {
-  .scuttler: CrabStats(18, 2.8, 0.42, 'scuttler', scale: 2.9),
+  .scuttler: CrabStats(18, 3.4, 0.42, 'scuttler', scale: 2.9),
   .tarback: CrabStats(65, 1.5, 1.24, 'tarback', scale: 2.1),
   .snuffer: CrabStats(30, 2.2, 0.6, 'snuffer', scale: 2.6),
   .basher: CrabStats(90, 1.4, 1.2, 'basher', scale: 2.2),
@@ -39,16 +39,55 @@ const double crabFlowTargetRadius = 4.5;
 const double crabSteerResponse = 8;
 const double crabSeparation = 0.6;
 
-/// Steering forces (the kit's seek, separation and alignment): how hard a
-/// crab turns, and how much the horde shoves apart and moves as one.
+/// Steering forces (the kit's seek, separation, alignment and cohesion):
+/// how hard a crab turns, and how much the horde shoves apart, moves as
+/// one and packs together.
 const double crabSteerForce = 14;
 const double crabSeparationWeight = 1.3;
-const double crabAlignmentWeight = 0.35;
+const double crabAlignmentWeight = 0.8;
+const double crabCohesionWeight = 0.45;
+
+/// A crab heeds the crabs this close (m), at most this many of them.
+const double crabNeighbourRadius = 4;
+const int crabNeighbourMax = 24;
+
+/// The hurricane: closing on its quarry (the keeper, a target, or the
+/// lighthouse base), the horde wheels round it, all one way, strongest
+/// between these distances (m), so it circles and spirals in rather than
+/// marching straight.
+const double crabSwirl = 0.7;
+const double crabSwirlNear = 1.5;
+const double crabSwirlFar = 12;
+
+/// A crab checks this far (m) along its wheeling way for a beam first.
+const double crabSwirlLookAhead = 2;
+
+/// Only the beams kill by light (the lighthouse's and the lantern's focus).
+/// In the lantern's glow, a lamp's or a brazier's light a crab moves at
+/// this fraction of its speed.
+const double crabLightSlow = 0.55;
 
 /// A crab that sees the keeper close by (and is not blinded by light)
-/// leaves the flow and hunts him, faster.
+/// leaves the flow and hunts him, faster; a hunter (scuttlers) from much
+/// further, faster still, light or no light.
 const double crabAggroRadius = 7;
 const double crabHuntSpeed = 1.25;
+const double crabHunterAggroRadius = 30;
+const double crabHunterSpeed = 1.5;
+
+/// A hunter this close to the keeper (m) leaps at him: through the air for
+/// this long, this high at the top, landing ready to bite; then again
+/// after a cooldown between these (s).
+const double crabLeapMin = 2.0;
+const double crabLeapMax = 8;
+const double crabLeapSeconds = 0.42;
+const double crabLeapHeight = 1.0;
+const double crabLeapCooldownMin = 1.6;
+const double crabLeapCooldownMax = 3.2;
+
+/// A hunter caught in a beam (the lighthouse's or the lantern's focus)
+/// pushes on at this fraction of its speed.
+const double crabBeamSlow = 0.4;
 
 /// The attack's pounce, sprung just before the claw lands.
 const double crabLungeSpeed = 7;
@@ -152,9 +191,14 @@ const int tideMotherBrood = 6;
 const double tideMotherBroodPortBack = 1.53;
 const double tideMotherLighthouseStop = 7;
 
+/// Swarmlings: the horde types, alive at most this many at once (no more
+/// than their pool), whose bites only nibble (keeperNibblesPerHeart).
+const Set<CrabType> crabHordeTypes = {.scuttler};
+const int crabHordeCap = 120;
+
 // The pool, pre-warmed at boot (§4).
 const Map<CrabType, int> crabPoolSizes = {
-  .scuttler: 80,
+  .scuttler: crabHordeCap,
   .tarback: 8,
   .snuffer: 10,
   .basher: 6,

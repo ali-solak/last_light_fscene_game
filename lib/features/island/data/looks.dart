@@ -17,13 +17,15 @@ EnvironmentSettings nightLook(Skybox skybox) => EnvironmentSettings(
   bloomThreshold: 1.0,
   bloomIntensity: 0.2,
   bloomScatter: 0.72,
-  // Sea fog: thick and ground-hugging, tinted by the sky, glowing toward
-  // the moon, so lights bloom through it and shapes loom out of it.
+  // Sea haze: the engine's height fog, thickest just above the sea and
+  // thinning up the slopes, a shade lighter than the night so distance
+  // reads through it, glowing toward the moon. The rolling banks are
+  // particles (weather).
   fogEnabled: true,
   fogMode: FogMode.exponential,
-  fogColor: Vector3(0.03, 0.045, 0.075),
-  fogDensity: 0.045,
-  fogHeight: 0.0,
+  fogColor: Vector3(0.055, 0.07, 0.105),
+  fogDensity: 0.055,
+  fogHeight: 0.5,
   fogHeightFalloff: 0.28,
   fogSkyColorInfluence: 0.35,
   fogMaxOpacity: 0.93,

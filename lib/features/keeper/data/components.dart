@@ -64,6 +64,9 @@ final class KeeperBrain {
 final class Hearts {
   int current = keeperHearts;
   final int max = keeperHearts;
+
+  /// Swarmling nibbles toward the next lost heart.
+  int nibbles = 0;
 }
 
 /// The floating "E — turn" prompt.

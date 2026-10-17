@@ -22,12 +22,12 @@ void installIslandScenery(GameBuilder game) {
 }
 
 /// Startup, visual: the island model and its collider, the anchored
-/// buildings, rocks, props, grass, sea, fog planes, sky and lights.
+/// buildings, rocks, props, grass, sea, sky and lights.
 void _dressIsland(World world) {
   final lib = world.resource<ModelLibrary>();
   if (!lib.hasModels) return;
   final scene = world.resource<Scene>();
-  final doc = world.resource<IslandAsset>().document;
+  final doc = world.resource<IslandAsset>();
   final grid = world.resource<HeightGrid>();
   final materials = world.tryResource<Materials>();
   final scenery = world.resource<IslandScenery>();
@@ -35,7 +35,7 @@ void _dressIsland(World world) {
 
   // The island, with its hidden collision mesh as a fixed trimesh.
   final island = lib.instance('island');
-  if (lib.find(island, 'collision') case final collision?) {
+  if (island.getChildByName('collision') case final collision?) {
     collision.visible = false;
     if (physics) {
       collision.addComponent(
@@ -47,9 +47,9 @@ void _dressIsland(World world) {
     }
   }
   if (materials?['wet_sand'] case final sand?) {
-    assign(lib, island, 'ground', sand);
+    assign(island, 'ground', sand);
   }
-  scenery.ground = lib.find(island, 'ground');
+  scenery.ground = island.getChildByName('ground');
   world.spawn([NodeRef(island), const Scenery()]);
 
   // Buildings at their anchors.
@@ -69,7 +69,7 @@ void _dressIsland(World world) {
       );
     }
     final glass = model == 'cottage' ? (materials?['lamp_glass']) : null;
-    if (glass != null) assign(lib, node, 'window', glass);
+    if (glass != null) assign(node, 'window', glass);
     final at = transform.getTranslation();
     world.spawn([
       NodeRef(node),
@@ -78,8 +78,8 @@ void _dressIsland(World world) {
     ]);
     // The cottage window spills warm light onto the ground outside: a
     // rectangular area light on the window, facing out.
-    if (model == 'cottage' && lib.find(node, 'window') != null) {
-      final window = lib.find(node, 'window')!.globalTransform.getTranslation();
+    if (model == 'cottage' && node.getChildByName('window') != null) {
+      final window = node.getChildByName('window')!.globalTransform.getTranslation();
       final out = Vector3(window.x - at.x, 0, window.z - at.z);
       if (out.length2 > 1e-6) {
         out.normalize();
@@ -190,22 +190,6 @@ void _dressIsland(World world) {
   setRenderLayer(sea, RenderLayers.actors);
   world.spawn([NodeRef(sea), const Scenery()]);
 
-  // Rolling ground fog the beam cuts through.
-  if (materials?['ground_fog'] case final fog?) {
-    for (final (x, z, size) in islandFogPlanes) {
-      final node = Node(
-        name: 'fog',
-        mesh: Mesh(PlaneGeometry(width: size, depth: size), fog),
-      )..localTransform = Matrix4.translationValues(x, islandFogHeight, z);
-      node
-        ..shadowCastingMode = ShadowCastingMode.off
-        ..layers = RenderLayers.actors;
-      scenery.fog.add(node);
-      setRenderLayer(node, RenderLayers.actors);
-      world.spawn([NodeRef(node), const Scenery()]);
-    }
-  }
-
   // Sky, a low moon (shadows and god rays), and the night/dawn looks.
   final skybox = Skybox(
     materials?.sky ??
@@ -276,9 +260,6 @@ void _tickSky(World world) {
     final target = tide.low ? -islandTideShift : 0.0;
     final y = smoothTo(sea.position.y, target, world.delta, 1.5);
     sea.position = Vector3(0, y, 0);
-  }
-  for (final fog in scenery.fog) {
-    fog.visible = dawn < 0.95;
   }
 }
 

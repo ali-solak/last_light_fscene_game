@@ -61,10 +61,10 @@ void _warmCrabPool(World world) {
     for (var i = 0; i < count; i++) {
       final node = lib.instance(asset);
       if (shell != null) _shade(node, shell);
-      if (lib.find(node, 'tar_shell') case final tar?) {
+      if (node.getChildByName('tar_shell') case final tar?) {
         if (materials?.take('tar') case final m?) assignNode(tar, m);
       }
-      if (lib.find(node, 'glass_shell') case final glass?) {
+      if (node.getChildByName('glass_shell') case final glass?) {
         if (materials?.take('crystal') case final m?) assignNode(glass, m);
       }
       final mound = type == CrabType.burrower && lib.has('sand_mound')
@@ -101,7 +101,7 @@ void _dressCrabs(World world) {
     if (mound != null && mound.parent == null) node.add(mound);
     mound?.visible = false;
     final parts = {
-      for (final name in _crabParts) name: ?lib.find(node, name),
+      for (final name in _crabParts) name: ?node.getChildByName(name),
     };
     for (final part in parts.values) {
       part.visible = true;
@@ -145,6 +145,7 @@ void _animateCrabs(World world) {
           (light?.beam ?? false) => 'Reflect',
       CrabMode.advancing when crab.type == CrabType.mothCrab &&
           brain.target != null => 'Flutter',
+      CrabMode.advancing when body.leap > 0 => 'Attack',
       CrabMode.advancing => moving ? scuttle : 'Idle',
       CrabMode.cowering => 'Cower',
       CrabMode.attacking => 'Attack',

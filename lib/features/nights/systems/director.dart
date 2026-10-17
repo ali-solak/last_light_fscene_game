@@ -86,8 +86,14 @@ StepResult _land(
   final points = world.resource<SpawnPoints>().of(beach);
   if (points.isEmpty) return StepResult.success;
   var count = 0;
+  // Swarmlings past the horde's cap stay in the sea.
+  var horde = 0;
+  world.query<Crab>().without<Dead>().each((_, crab) {
+    if (crabHordeTypes.contains(crab.type)) horde++;
+  });
   for (final MapEntry(key: type, value: n) in crabs.entries) {
     for (var i = 0; i < n; i++) {
+      if (crabHordeTypes.contains(type) && horde++ >= crabHordeCap) break;
       final base = points[count % points.length];
       final a = run.rng.nextDouble() * math.pi * 2;
       final r = run.rng.nextDouble() * nightLandingSpread;

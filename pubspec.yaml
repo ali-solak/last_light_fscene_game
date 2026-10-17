@@ -50,7 +50,6 @@ flutter:
           weight: 700
   assets:
     - assets/models/clips.json
-    - assets/models/environment/island.glb
     - assets/fonts/
     - flutter_scene_generated/
     - path: flutter_scene_generated/metal_ios/

@@ -1,6 +1,5 @@
 import 'dart:io';
 
-import 'package:last_light/assets/glb.dart';
 import 'package:last_light/assets/model_library.dart';
 import 'package:last_light/common/events.dart';
 import 'package:last_light/common/inputs.dart';
@@ -15,11 +14,23 @@ import 'package:last_light/game.dart';
 import 'package:scene_dash_v2/scene_dash_v2.dart';
 import 'package:vector_math/vector_math.dart';
 
-final IslandAsset islandAsset = IslandAsset(
-  GlbDocument.parse(
+import 'glb.dart';
+
+/// The island read straight from the file: headless tests have no GPU to
+/// load the model the game reads it from.
+final IslandAsset islandAsset = () {
+  final doc = GlbDocument.parse(
     File('assets/models/environment/island.glb').readAsBytesSync(),
-  ),
-);
+  );
+  return IslandAsset(
+    transforms: {
+      for (final name in doc.nodeNames) name: doc.worldTransform(name)!,
+    },
+    collision: doc.triangles('collision'),
+    ground: doc.triangles('ground'),
+    groundUs: doc.triangleUs('ground'),
+  );
+}();
 
 final ModelLibrary headlessModels = ModelLibrary.headless(
   parseClipBook(File('assets/models/clips.json').readAsStringSync()),

@@ -73,7 +73,9 @@ void _keeperModes(World world) {
   switch (mode.state) {
     case KeeperMode.downed:
       if (mode.elapsed < keeperDownedSeconds) return;
-      hearts.current = hearts.max;
+      hearts
+        ..current = hearts.max
+        ..nibbles = 0;
       brain
         ..invulnerable = keeperHitInvuln
         ..mode.go(KeeperMode.idle);

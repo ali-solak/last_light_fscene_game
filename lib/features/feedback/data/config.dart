@@ -10,8 +10,14 @@ const double feedbackBlastFreeze = 0.07;
 const double feedbackHarpoonTrauma = 0.25;
 const double feedbackCrackFreeze = 0.08;
 const double feedbackCrackTrauma = 0.4;
-const double feedbackKeeperTrauma = 0.5;
-const double feedbackKeeperHitPause = 0.06;
+/// A lost heart: a hard shake and kick, a beat of hitstop, his pose held.
+/// A nibble: a jolt.
+const double feedbackKeeperTrauma = 0.75;
+const double feedbackKeeperKick = 0.09;
+const double feedbackKeeperFreeze = 0.09;
+const double feedbackKeeperHitPause = 0.08;
+const double feedbackNibbleTrauma = 0.22;
+const double feedbackNibbleKick = 0.04;
 const double feedbackBossFreeze = 0.12;
 const double feedbackBossTrauma = 0.8;
 const double feedbackSlamTrauma = 0.35;

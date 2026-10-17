@@ -24,7 +24,6 @@ const Map<FxKind, double> _windCarry = {
   .dust: 0.8,
   .fire: 0.5,
   .mist: 1.2,
-  .fog: 0.6,
   .rain: 2.4,
 };
 
@@ -94,7 +93,7 @@ Component _emitter(
   final material = SpriteMaterial(colorTexture: texture)
     ..blendMode = spec.additive ? SpriteBlendMode.additive : SpriteBlendMode.alpha
     ..softDepthFade = spec.softDepth
-    // Fog banks thin out as the camera walks into them.
+    // Fog thins out as the camera walks into it.
     ..cameraNearFade = kind == FxKind.fog ? 4.0 : 0.0;
   final grid = spec.flipbook >= 64 ? 8 : (spec.flipbook > 0 ? 4 : 1);
   return ParticleEmitterComponent(system: system, material: material)

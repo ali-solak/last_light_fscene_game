@@ -37,8 +37,8 @@ void _dressLighthouse(World world) {
       ),
     );
   }
-  final head = lib.find(tower, 'lamp_head') ?? tower;
-  final lens = lib.find(tower, 'lens');
+  final head = tower.getChildByName('lamp_head') ?? tower;
+  final lens = tower.getChildByName('lens');
   final glass = world.tryResource<Materials>()?.take('lamp_glass');
   if (lens != null && glass != null) assignNode(lens, glass);
   final light = PointLight(

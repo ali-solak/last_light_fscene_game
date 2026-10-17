@@ -43,11 +43,20 @@ void _impacts(World world) {
     rig.addTrauma(feedbackSlamTrauma);
   }
   for (final _ in world.events<KeeperHit>()) {
-    rig.addTrauma(feedbackKeeperTrauma);
+    state.freeze(clock, feedbackKeeperFreeze);
+    rig
+      ..addTrauma(feedbackKeeperTrauma)
+      ..addKick(feedbackKeeperKick);
     final keeper = world.entitiesWith<Keeper>().firstOrNull;
     if (keeper != null) {
       world.add(keeper, const HitPause(), removeAfter: feedbackKeeperHitPause);
     }
+  }
+  for (final bite in world.events<KeeperBitten>()) {
+    if (bite.hurt) continue; // the KeeperHit above
+    rig
+      ..addTrauma(feedbackNibbleTrauma)
+      ..addKick(feedbackNibbleKick);
   }
   for (final _ in world.events<CrabKilled>()) {
     state.streak =
