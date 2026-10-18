@@ -142,6 +142,7 @@ IconData boonIcon(String name) => switch (name) {
   'change_history' => Icons.change_history,
   'wb_sunny' => Icons.wb_sunny,
   'water' => Icons.water,
+  'emoji_objects' => Icons.emoji_objects,
   _ => Icons.star,
 };
 

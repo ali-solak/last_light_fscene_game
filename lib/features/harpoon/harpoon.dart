@@ -1,6 +1,7 @@
 /// The harpoon gun: hold to aim, release to fire. The bolt casts each step;
 /// the first hit decides: a crab is speared and reeled in, a mirror's hook
-/// is dragged round, a rock (Whaler's Reel) hauls the keeper over.
+/// is dragged round, flotsam is hauled ashore, a rock (Whaler's Reel)
+/// hauls the keeper over.
 library;
 
 import 'dart:math' as math;
@@ -15,6 +16,7 @@ import '../../common/events.dart';
 import '../../common/grid.dart';
 import '../../common/inputs.dart';
 import '../../common/physics_layers.dart';
+import '../../common/pooled.dart';
 import '../../common/render_layers.dart';
 import '../../common/sets.dart';
 import '../../common/states.dart';
@@ -26,6 +28,8 @@ import '../island/island.dart';
 import '../keeper/keeper.dart'
     show Keeper, KeeperBody, KeeperBrain, KeeperMode, KeeperModel;
 import '../mirrors/mirrors.dart' show Mirror;
+import '../wreckage/wreckage.dart'
+    show Flotsam, flotsamCentre, flotsamHookRadius;
 
 part 'data/components.dart';
 part 'data/config.dart';

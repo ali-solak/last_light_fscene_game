@@ -43,7 +43,7 @@ void main() {
   }
 
   test('every boon in the table is reachable by id', () {
-    expect(allBoons, hasLength(23));
+    expect(allBoons, hasLength(24));
     for (final boon in allBoons) {
       expect(boonById(boon.id), same(boon));
     }
@@ -86,6 +86,27 @@ void main() {
     expect(lantern.lit, isFalse);
     game.seconds(lanternSmashAway);
     expect(lantern.lit, isTrue);
+  });
+
+  test("Will-o'-Wisp: the thrown lamp leaves a wisp the crabs near it go to",
+      () {
+    stage('wisp');
+    final k = game.keeperAt;
+    final crab = game.crab(CrabType.scuttler, k.x - 6, k.z + 5);
+    game.aimAt(k.x - 6, k.z);
+    game.world.buffer<KeeperAction>().record(KeeperAction.throwLamp);
+    game.frame();
+    game.seconds(lanternThrowSeconds + 0.6);
+    final target = game.world.get<CrabBrain>(crab).target;
+    expect(target, isNotNull);
+    expect(game.world.has<Lure>(target!), isTrue);
+    final c = game.world.get<SceneTransform>(crab);
+    final lure = game.world.get<SceneTransform>(target);
+    final before = (c.x - lure.x).abs() + (c.z - lure.z).abs();
+    game.seconds(1);
+    expect((c.x - lure.x).abs() + (c.z - lure.z).abs(), lessThan(before));
+    game.seconds(lanternLureSeconds);
+    expect(game.world.entitiesWith<Lure>().isEmpty, isTrue);
   });
 
   test('Flashpoint: a jump cowers crabs within 3 m', () {

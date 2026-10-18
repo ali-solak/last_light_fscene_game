@@ -13,10 +13,11 @@ import '../../assets/model_library.dart';
 import '../../common/events.dart';
 import '../../common/grid.dart';
 import '../../common/inputs.dart';
+import '../../common/pooled.dart';
 import '../../common/render_layers.dart';
 import '../../common/sets.dart';
 import '../../common/states.dart';
-import '../boons/boons.dart' show Flare, Smash;
+import '../boons/boons.dart' show Flare, Smash, Wisp;
 import '../island/island.dart';
 import '../keeper/keeper.dart'
     show Keeper, KeeperBody, KeeperBrain, KeeperMode, KeeperModel;

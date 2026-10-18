@@ -12,35 +12,47 @@ void installHarpoonVisuals(GameBuilder game) {
     ..addSystem(
       Schedules.renderSync,
       _drawDarts,
-      writes: {DartVisual},
-      reads: {Dart},
-      runIf: hasResource<Scene>().and(hasResource<ModelLibrary>()),
+      reads: {Dart, HarpoonVisual, Pooled},
+      after: [_drawHarpoon],
+      runIf: hasResource<Scene>(),
     );
 }
 
-/// Render sync: darts as small bolts with a streak of light behind.
+/// Render sync: darts as small bolts off the gun's rack, a streak of
+/// light behind.
 void _drawDarts(World world) {
-  final lib = world.resource<ModelLibrary>();
+  final gun = world.query<HarpoonVisual>().firstOrNull?.$2;
+  final darts = gun?.darts;
+  final tip = (gun?.tip ?? 0) * 0.7;
   world.query<Dart>().each((entity, dart) {
-    var visual = world.tryGet<DartVisual>(entity);
-    if (visual == null) {
-      if (!lib.has('harpoon_bolt')) return;
-      final node = lib.instance('harpoon_bolt')
-        ..addComponent(TrailComponent(width: 0.07, lifetime: 0.2));
-      setRenderLayer(node, RenderLayers.actors);
-      visual = DartVisual(node, _boltTip(node) * harpoonBoltScale * 0.7);
-      world
-        ..add(entity, visual)
-        ..add(entity, NodeRef(node));
-    }
     final dir = dart.velocity.normalized();
-    _placeBolt(
-      visual.node,
-      dart.position - dir * visual.tip,
+    void place(Node node) => _placeBolt(
+      node,
+      dart.position - dir * tip,
       dir,
       harpoonBoltScale * 0.7,
     );
+    if (world.tryGet<Pooled>(entity) case final pooled?) {
+      place(pooled.node);
+      return;
+    }
+    final node = darts?.take();
+    if (node == null) return;
+    // Placed before its trail forgets the last shot, so no streak.
+    place(node);
+    node.getComponent<TrailComponent>()?.clear();
+    world
+      ..add(entity, NodeRef(node))
+      ..add(entity, Pooled(darts!, node));
   });
+}
+
+/// A dart: a small bolt with a short trail.
+Node _dart(ModelLibrary lib) {
+  final node = lib.instance('harpoon_bolt')
+    ..addComponent(TrailComponent(width: 0.07, lifetime: 0.2));
+  setRenderLayer(node, RenderLayers.actors);
+  return node;
 }
 
 /// The bolt model's tip along its +Z (its origin is the chain's anchor).
@@ -100,9 +112,11 @@ void _drawHarpoon(World world) {
       root.addAll(links);
       setRenderLayer(root, RenderLayers.actors);
       world.spawn([NodeRef(root)], ownedBy: entity);
+      final darts = mountRack(world, 'darts', () => _dart(lib),
+          size: harpoonDartRack);
       world.add(
         entity,
-        HarpoonVisual(bolt, tip, links, ChainRope(harpoonChainPoints)),
+        HarpoonVisual(bolt, tip, links, ChainRope(harpoonChainPoints), darts),
       );
       return;
     }

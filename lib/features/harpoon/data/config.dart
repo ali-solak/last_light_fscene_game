@@ -22,6 +22,9 @@ const double harpoonDartDamage = 9;
 const double harpoonDartSpeed = 46;
 const double harpoonDartRange = 18;
 
+/// Darts kept on the gun: two a shot, back before the reload ends.
+const int harpoonDartRack = 4;
+
 /// Whiplash: crabs this close to the chain while it reels take this, and
 /// are flung this fast.
 const double harpoonLashReach = 1.1;
@@ -50,6 +53,10 @@ const double harpoonReelSeconds = 1.2;
 const double harpoonMirrorReelSeconds = 0.8;
 const double harpoonSelfReelSeconds = 1.5;
 const double harpoonSelfReelArrive = 1.0;
+
+/// Hauling flotsam: slower than a crab, and given longer to come in.
+const double harpoonHaulSpeed = 6;
+const double harpoonHaulSeconds = 3.5;
 
 /// Fallback reload when the clip is missing; normally the reload is the
 /// `Ranged_2H_Reload` clip's length.

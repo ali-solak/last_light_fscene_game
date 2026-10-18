@@ -22,7 +22,7 @@ enum CrabType {
 enum DamageSource { light, beam, harpoon, slam, explosion, burn, bash }
 
 /// What the harpoon bolt struck first.
-enum HarpoonTargetKind { crab, mirror, prop, ground, miss }
+enum HarpoonTargetKind { crab, mirror, flotsam, prop, ground, miss }
 
 /// The phases of a dawn-build pointer gesture.
 enum BuildPhase { tap, dragStart, drag, dragEnd }
@@ -219,6 +219,12 @@ final class WreckBroken(final bool barrel, final Vector3 position);
 /// The keeper walked over a spill from a crate: lamp oil, or a heart.
 final class PickedUp(final bool heart, final Vector3 position);
 
+/// Hauled flotsam came ashore at [position] (a [barrel], or a crate).
+final class FlotsamLanded(final bool barrel, final Vector3 position);
+
+/// A light mote reached the keeper's lamp at [position].
+final class MoteGathered(final Vector3 position);
+
 /// Something other than a crab's claw hurt the keeper (a barrel blast).
 final class const KeeperStruck(final int hearts);
 
@@ -285,6 +291,8 @@ void configureEvents(GameBuilder game) {
     ..configureEvent<LampBashed>()
     ..configureEvent<CrabBashed>()
     ..configureEvent<PickedUp>()
+    ..configureEvent<MoteGathered>()
+    ..configureEvent<FlotsamLanded>()
     ..configureEvent<KeeperStruck>()
     ..configureEvent<MirrorRaised>()
     ..configureEvent<MirrorAimed>()

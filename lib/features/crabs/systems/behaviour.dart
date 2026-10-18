@@ -50,7 +50,7 @@ void installCrabBehaviour(GameBuilder game) {
       Schedules.fixedUpdate,
       _chooseTargets,
       writes: {CrabBrain},
-      reads: {SceneTransform, SnuffsLamps, KnocksMirrors, SeeksLight, LampPost, Mirror, Lantern, Keeper, KeeperBrain, Dead},
+      reads: {SceneTransform, SnuffsLamps, KnocksMirrors, SeeksLight, LampPost, Mirror, Lantern, Keeper, KeeperBrain, Dead, Lure},
       inSet: GameSets.crabs,
       after: [_respondToLight],
       runIf: _night.and(every(0.25)),
@@ -283,8 +283,12 @@ void _respondToLight(World world) {
 }
 
 /// Snuffers seek lit lamps, bashers upright mirrors, moth crabs the
-/// brightest light near them.
+/// brightest light near them; the rest go to a wisp near them.
 void _chooseTargets(World world) {
+  final lures = [
+    for (final (e, t) in world.query<SceneTransform>().having<Lure>().snapshot())
+      (e, t.x, t.z),
+  ];
   final lamps = <(Entity, double, double)>[];
   world.query2<LampPost, SceneTransform>().each((e, lamp, t) {
     if (lamp.lit) lamps.add((e, t.x, t.z));
@@ -329,6 +333,8 @@ void _chooseTargets(World world) {
               crabMothSeek * crabMothSeek) {
         brain.target = keeper.$1;
       }
+    } else {
+      brain.target = nearest(lures, t.x, t.z, lanternLureRadius);
     }
   });
 }

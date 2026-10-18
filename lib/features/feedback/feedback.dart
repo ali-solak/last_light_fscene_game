@@ -14,6 +14,7 @@ import '../../assets/model_library.dart';
 import '../../common/billboard.dart';
 import '../../common/events.dart';
 import '../../common/physics_layers.dart';
+import '../../common/pooled.dart';
 import '../../common/render_layers.dart';
 import '../../common/sets.dart';
 import '../../ui/world/word_pop.dart';

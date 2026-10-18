@@ -4,6 +4,7 @@ import 'assets/model_library.dart';
 import 'common/events.dart';
 import 'common/inputs.dart';
 import 'common/pause.dart';
+import 'common/pooled.dart';
 import 'common/sets.dart';
 import 'common/settings.dart';
 import 'common/states.dart';
@@ -16,6 +17,7 @@ import 'features/defenses/defenses.dart';
 import 'features/feedback/feedback.dart';
 import 'features/fire/fire.dart';
 import 'features/fx/fx.dart';
+import 'features/gulls/gulls.dart';
 import 'features/harpoon/harpoon.dart';
 import 'features/island/island.dart';
 import 'features/keeper/keeper.dart';
@@ -24,6 +26,7 @@ import 'features/lantern/lantern.dart';
 import 'features/light/light.dart';
 import 'features/lighthouse/lighthouse.dart';
 import 'features/mirrors/mirrors.dart';
+import 'features/motes/motes.dart';
 import 'features/nights/nights.dart';
 import 'features/viewmodel/viewmodel.dart';
 import 'features/weather/weather.dart';
@@ -64,6 +67,7 @@ Feature configureGame(
   configureEvents(game);
   installSettings(game);
   installPause(game);
+  installPooled(game);
 };
 
 /// Every feature, in install order.
@@ -88,4 +92,6 @@ const List<Feature> lastLightFeatures = [
   installViewmodel,
   installWeather,
   installWreckage,
+  installMotes,
+  installGulls,
 ];

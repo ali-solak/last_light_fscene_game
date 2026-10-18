@@ -24,6 +24,7 @@ void installLanternOil(GameBuilder game) {
       Schedules.fixedUpdate,
       _flyLamp,
       writes: {ThrownLamp},
+      reads: {Wisp},
       inSet: GameSets.lantern,
       after: [_throwLamp],
       runIf: inState(GameStatus.night),
@@ -113,9 +114,11 @@ void _throwLamp(World world) {
   ]);
 }
 
-/// The lamp flies its arc; where it lands it bursts into burning oil.
+/// The lamp flies its arc; where it lands it bursts into burning oil (and,
+/// with Will-o'-Wisp, leaves a wisp over it).
 void _flyLamp(World world) {
   final dt = world.dt;
+  final wisp = !world.entitiesWith<Wisp>().isEmpty;
   world.query<ThrownLamp>().each((entity, lamp) {
     lamp.age += dt;
     if (lamp.t < 1) return;
@@ -129,6 +132,14 @@ void _flyLamp(World world) {
         const DespawnOnExit(GameStatus.night),
       ])
       ..emit(LampShattered(at.clone(), lamp.radius));
+    if (wisp) {
+      world.spawn([
+        const Lure(),
+        SceneTransform(at.x, at.y + lanternLureHeight, at.z),
+        DespawnAfter(lanternLureSeconds),
+        const DespawnOnExit(GameStatus.night),
+      ]);
+    }
   });
 }
 

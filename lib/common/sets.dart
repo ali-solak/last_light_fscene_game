@@ -3,7 +3,7 @@ import 'package:scene_dash_v2/scene_dash_v2.dart';
 /// Cross-feature phase order, declared once in `configureGame`.
 ///
 /// fixedUpdate: input → keeper → weapons → lantern → light → navigation →
-/// crabs → damage → rules → lamps → nights.
+/// crabs → damage → flotsam → motes → gulls → rules → lamps → nights.
 /// update: dress → animation (keeper, crabs, mirrors, lamps) → feedback →
 /// camera.
 ///
@@ -20,6 +20,12 @@ abstract final class GameSets {
   static const navigation = SystemSet('fixed.navigation');
   static const crabs = SystemSet('fixed.crabs');
   static const damage = SystemSet('fixed.damage');
+
+  /// What the sea and the air carry, each moving its own transforms:
+  /// flotsam, light motes, gulls.
+  static const flotsam = SystemSet('fixed.flotsam');
+  static const motes = SystemSet('fixed.motes');
+  static const gulls = SystemSet('fixed.gulls');
   static const rules = SystemSet('fixed.rules');
   static const lamps = SystemSet('fixed.lamps');
   static const nights = SystemSet('fixed.nights');
@@ -42,6 +48,9 @@ abstract final class GameSets {
     navigation,
     crabs,
     damage,
+    flotsam,
+    motes,
+    gulls,
     rules,
     lamps,
     nights,

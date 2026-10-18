@@ -41,8 +41,16 @@ final class ThrownLamp(final Vector3 from, final Vector3 to, final double radius
   }
 }
 
-/// The flying lamp's model and light.
-final class ThrownLampVisual(final Node node);
+/// A wisp over a burst lamp (Will-o'-Wisp): crabs near it go to it.
+final class const Lure() implements Tag;
+
+/// The wisp glows: a rack of cold lights.
+final class LureRack(final NodeRack rack);
+
+/// A wisp's glow and light, and how long it has burned.
+final class LureGlow(final Node glow, final PointLight light) {
+  double age = 0;
+}
 
 /// Burning oil from a thrown lamp: light and damage in a disc.
 final class BurnPuddle(final double x, final double z, final double radius) {
@@ -50,7 +58,8 @@ final class BurnPuddle(final double x, final double z, final double radius) {
 }
 
 /// The lantern's light in the world: a real spot light that carves the
-/// dark and throws shadows, and the lamp's own warm glow. No geometry.
+/// dark and throws shadows, and the lamp's own warm glow. No geometry but
+/// the [spares]: lit lamps ready to throw.
 final class LanternVisual(
   final SpotLight spot,
   final Node spotNode,
@@ -58,6 +67,7 @@ final class LanternVisual(
   final Node glowNode,
   final Node? beam,
   final PreprocessedMaterial? beamMaterial,
+  final NodeRack spares,
 ) {
   double time = 0;
   double sparks = 0;

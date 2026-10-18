@@ -27,13 +27,15 @@ final class Harpoon {
   String toString() => mode.toString();
 }
 
-/// The bolt and chain nodes, the chain's verlet rope, and the gun's kick.
-/// [tip] is the bolt model's tip along its +Z, out from the chain's anchor.
+/// The bolt and chain nodes, the chain's verlet rope, the gun's kick, and
+/// the [darts] it fans out (Triple Bolt). [tip] is the bolt model's tip
+/// along its +Z, out from the chain's anchor.
 final class HarpoonVisual(
   final Node bolt,
   final double tip,
   final List<Node> links,
   final ChainRope rope,
+  final NodeRack darts,
 ) {
   /// 0..1, set to 1 on a shot and sprung back down.
   double recoil = 0;
@@ -140,6 +142,3 @@ final class ChainRope(final int count) {
 final class Dart(final Vector3 position, final Vector3 velocity) {
   double travelled = 0;
 }
-
-/// A dart's model, and its tip out from the model's origin.
-final class DartVisual(final Node node, final double tip);

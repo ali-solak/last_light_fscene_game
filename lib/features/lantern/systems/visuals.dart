@@ -1,14 +1,37 @@
 part of '../lantern.dart';
 
 void installLanternVisuals(GameBuilder game) {
-  game.addSystem(
-    Schedules.update,
-    _lanternVisuals,
-    writes: {LanternVisual, KeeperModel, ThrownLampVisual},
-    reads: {Lantern, KeeperBrain, KeeperBody, SceneTransform, ThrownLamp, NodeRef},
-    inSet: GameSets.lampAnimation,
-    runIf: hasResource<Scene>().and(hasResource<ModelLibrary>()),
-  );
+  game
+    ..addSystem(
+      Schedules.update,
+      _lanternVisuals,
+      writes: {LanternVisual, KeeperModel},
+      reads: {Lantern, KeeperBrain, KeeperBody, SceneTransform},
+      inSet: GameSets.lampAnimation,
+      runIf: hasResource<Scene>().and(hasResource<ModelLibrary>()),
+    )
+    ..addSystem(
+      Schedules.update,
+      _drawThrownLamps,
+      reads: {ThrownLamp, LanternVisual, Pooled},
+      inSet: GameSets.lampAnimation,
+      after: [_lanternVisuals],
+      runIf: hasResource<Scene>(),
+    )
+    ..addSystem(
+      Schedules.startup,
+      _rackLures,
+      reads: const {},
+      runIf: hasResource<Scene>().and(hasResource<FxTextures>()),
+    )
+    ..addSystem(
+      Schedules.update,
+      _drawLures,
+      writes: {LureGlow},
+      reads: {Lure, SceneTransform, Pooled},
+      inSet: GameSets.lampAnimation,
+      runIf: hasResource<LureRack>(),
+    );
 }
 
 /// Visual: the lamp's light carving the dark. A shadow-casting spot that
@@ -17,7 +40,6 @@ void installLanternVisuals(GameBuilder game) {
 /// glow, the flickering flame, embers off a hot lamp, the red smoulder of
 /// a dry one, and burning puddles.
 void _lanternVisuals(World world) {
-  final lib = world.resource<ModelLibrary>();
   final aim = world.resource<AimInput>();
   final grid = world.tryResource<HeightGrid>();
   final fx = world.tryResource<Fx>();
@@ -220,35 +242,104 @@ void _lanternVisuals(World world) {
       }
     }
   });
+}
 
-  // A thrown lamp: the lamp itself tumbling through its arc, flame lit,
-  // trailing light. (Where it lands, the fire feature draws the burning
-  // oil.)
+/// A thrown lamp: one of the lantern's spares tumbling through its arc,
+/// flame lit, trailing light. (Where it lands, the fire feature draws the
+/// burning oil.)
+void _drawThrownLamps(World world) {
+  final spares = world.query<LanternVisual>().firstOrNull?.$2.spares;
   world.query<ThrownLamp>().each((entity, lamp) {
-    var visual = world.tryGet<ThrownLampVisual>(entity);
-    if (visual == null) {
-      final node = Node(name: 'thrown_lamp')
-        ..addComponent(
-          PointLightComponent(
-            PointLight(color: Vector3(1.0, 0.7, 0.35), intensity: 5, range: 7),
-          ),
-        )
-        ..addComponent(TrailComponent(width: 0.12, lifetime: 0.3));
-      if (lib.has('oil_lamp')) {
-        node.add(lib.instance('oil_lamp')..scale = Vector3.all(1.4));
-      }
-      setRenderLayer(node, RenderLayers.actors);
-      visual = ThrownLampVisual(node);
-      world
-        ..add(entity, visual)
-        ..add(entity, NodeRef(node));
-    }
-    visual.node.localTransform = Matrix4.compose(
+    final pose = Matrix4.compose(
       lamp.position,
       Quaternion.axisAngle(Vector3(1, 0, 0), lamp.age * 14),
       Vector3.all(1),
     );
+    if (world.tryGet<Pooled>(entity) case final pooled?) {
+      pooled.node.localTransform = pose;
+      return;
+    }
+    final node = spares?.take();
+    if (node == null) return;
+    // Placed before its trail forgets the last throw, so no streak.
+    node.localTransform = pose;
+    node.getComponent<TrailComponent>()?.clear();
+    world
+      ..add(entity, NodeRef(node))
+      ..add(entity, Pooled(spares!, node));
   });
+}
+
+/// Startup, visual: the wisps, cold blue-green so they never read as the
+/// lamp: a soft glow and a small light.
+void _rackLures(World world) {
+  final dot = world.resource<FxTextures>().dot;
+  world.insert(LureRack(mountRack(world, 'lures', () {
+    final glow = Sprite(
+      texture: dot,
+      width: 0.7,
+      height: 0.7,
+      color: Vector4(0.5, 1.6, 1.4, 1),
+      blendMode: SpriteBlendMode.additive,
+    );
+    final node = Node(name: 'wisp')
+      ..addComponent(
+        PointLightComponent(
+          PointLight(color: Vector3(0.45, 1.0, 0.9), intensity: 0, range: 5),
+        ),
+      )
+      ..add(Node(name: 'wisp_glow', mesh: glow.mesh));
+    setRenderLayer(node, RenderLayers.actors);
+    return node;
+  }, size: lanternLureRack)));
+}
+
+/// A wisp on each lure; it bobs, breathes, and gutters out at the end.
+void _drawLures(World world) {
+  final rack = world.resource<LureRack>().rack;
+  world.query<SceneTransform>().having<Lure>().without<Pooled>().each((
+    entity,
+    t,
+  ) {
+    final node = rack.take();
+    final glow = node?.children.firstOrNull;
+    final light = node?.getComponent<PointLightComponent>()?.light;
+    if (node == null || glow == null || light == null) return;
+    node.position = t.translation;
+    light.intensity = 0;
+    glow.scale = Vector3.zero();
+    world
+      ..add(entity, NodeRef(node))
+      ..add(entity, Pooled(rack, node))
+      ..add(entity, LureGlow(glow, light));
+  });
+  final dt = world.delta;
+  world.query<LureGlow>().each((_, wisp) {
+    final age = wisp.age += dt;
+    final fade = ((lanternLureSeconds - age) / 0.6).clamp(0.0, 1.0) *
+        (age / 0.3).clamp(0.0, 1.0);
+    final breath = 0.8 + 0.2 * math.sin(age * 5);
+    wisp.light.intensity = 2.2 * breath * fade;
+    wisp.glow
+      ..position = Vector3(0, 0.15 * math.sin(age * 2.4), 0)
+      ..scale = Vector3.all(fade * breath);
+  });
+}
+
+/// A lit lamp to throw: the model, its flame's light, a trail.
+Node _spareLamp(ModelLibrary lib) {
+  final node = Node(name: 'thrown_lamp')
+    ..addComponent(
+      PointLightComponent(
+        PointLight(color: Vector3(1.0, 0.7, 0.35), intensity: 5, range: 7),
+      ),
+    )
+    ..addComponent(TrailComponent(width: 0.12, lifetime: 0.3));
+  if (lib.has('oil_lamp')) {
+    node.add(lib.instance('oil_lamp')..scale = Vector3.all(1.4));
+  }
+  setRenderLayer(node, RenderLayers.actors);
+  return node;
 }
 
 /// The lamp's light nodes, in world space (they aim on their own rather
@@ -298,7 +389,11 @@ LanternVisual _spawnLanternLight(World world) {
   }
   setRenderLayer(root, RenderLayers.actors);
   world.spawn([NodeRef(root)]);
-  return LanternVisual(spot, spotNode, glow, glowNode, beam, beamMaterial);
+  final lib = world.resource<ModelLibrary>();
+  final spares = mountRack(world, 'spare_lamps', () => _spareLamp(lib),
+      size: lanternSpares);
+  return LanternVisual(
+      spot, spotNode, glow, glowNode, beam, beamMaterial, spares);
 }
 
 Vector3 _mixColor(Vector3 a, Vector3 b, double t) => a + (b - a) * t;

@@ -43,3 +43,6 @@ final class const TripleBolt() implements Tag;
 
 /// Flare: letting a held focus go flares the lamp.
 final class const Flare() implements Tag;
+
+/// Will-o'-Wisp: a thrown lamp leaves a wisp the crabs near it go to.
+final class const Wisp() implements Tag;

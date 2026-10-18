@@ -40,6 +40,7 @@ void _prism(World w) => w.resource<Run>().prisms += boonPrisms;
 void _whiplash(World w) => _tag(w, const Whiplash());
 void _tripleBolt(World w) => _tag(w, const TripleBolt());
 void _flare(World w) => _tag(w, const Flare());
+void _wisp(World w) => _tag(w, const Wisp());
 void _saltCellar(World w) => w.resource<Run>().saltOwned += boonExtraSalt;
 void _driftwood(World w) =>
     w.resource<Run>().barricadesOwned += boonExtraBarricades;
@@ -60,6 +61,9 @@ const List<Boon> allBoons = [
   Boon('flare', .ember, 'Flare',
       'Let a held focus go to flare: a short cone burns and dazzles.',
       'flashlight_on', _flare),
+  Boon('wisp', .ember, "Will-o'-Wisp",
+      'The thrown lamp leaves a wisp: crabs within 6 m go to it for 4 s.',
+      'emoji_objects', _wisp),
   Boon('barbed', .tide, 'Barbed', 'The harpoon pierces three crabs.',
       'call_split', _barbed),
   Boon('whalers_reel', .tide, "Whaler's Reel",

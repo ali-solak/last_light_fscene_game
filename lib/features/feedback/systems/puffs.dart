@@ -4,40 +4,32 @@ void installPuffs(GameBuilder game) {
   game
     ..addSystem(
       Schedules.startup,
-      _spawnWordPops,
+      _rackPuffsAndWords,
       reads: const {},
-      runIf: hasResource<Scene>(),
+      runIf: _visual,
     )
     ..addSystem(
       Schedules.update,
-      _ageWordPops,
-      reads: const {},
+      _puffs,
+      reads: {SceneTransform, LampPost, Keeper},
       inSet: GameSets.feedback,
-      runIf: hasResource<WordPops>(),
-    )
-    ..addSystem(
-    Schedules.update,
-    _puffs,
-    reads: {SceneTransform, LampPost, Keeper},
-    inSet: GameSets.feedback,
-    runIf: _visual.and(
-      hasEvents<LampSnuffed>().or(hasEvents<NightCleared>()),
-    ),
-  );
+      runIf: _visual.and(
+        hasEvents<LampSnuffed>().or(hasEvents<NightCleared>()),
+      ),
+    );
 }
 
 /// Smoke from a snuffed lamp; a word over the world for big moments.
 void _puffs(World world) {
-  final lib = world.resource<ModelLibrary>();
+  final rack = world.tryResource<Puffs>()?.rack;
   for (final snuffed in world.events<LampSnuffed>()) {
     final t = world.tryGet<SceneTransform>(snuffed.lamp);
-    if (t == null || !lib.has('flame_card')) continue;
-    final puff = lib.instance('flame_card')
-      ..position = Vector3(t.x, t.y + 2.2, t.z)
-      ..scale = Vector3.all(1.4);
-    setRenderLayer(puff, RenderLayers.actors);
+    final puff = t == null ? null : rack?.take();
+    if (puff == null) continue;
+    puff.position = Vector3(t!.x, t.y + 2.2, t.z);
     world.spawn([
       NodeRef(puff),
+      Pooled(rack!, puff),
       Fleeting(puff, feedbackPuffSeconds)..rise = 0.9,
     ]);
   }
@@ -49,27 +41,36 @@ void _puffs(World world) {
   }
 }
 
-/// A floating word over the world, from a pool mounted at startup.
+/// A floating word over the world: it rises and is gone.
 void _wordPop(World world, String text, Vector3 at) {
   final pops = world.tryResource<WordPops>();
-  if (pops == null || pops.slots.isEmpty) return;
-  final slot = pops.slots[pops.next];
-  pops.next = (pops.next + 1) % pops.slots.length;
-  slot.text.value = text;
-  slot.age = 0;
-  slot.node
-    ..visible = true
-    ..position = at;
+  final node = pops?.rack.take();
+  if (node == null) return;
+  pops!.texts[node]?.value = text;
+  node.position = at;
+  world.spawn([
+    NodeRef(node),
+    Pooled(pops.rack, node),
+    const Billboard(),
+    Fleeting(node, feedbackWordSeconds)..rise = feedbackWordRise,
+  ]);
 }
 
-/// Startup, visual: the word-pop pool.
-void _spawnWordPops(World world) {
-  final slots = <WordSlot>[];
-  for (var i = 0; i < feedbackWordPool; i++) {
+/// Startup, visual: the flame-card puffs and the word quads, built once.
+void _rackPuffsAndWords(World world) {
+  final lib = world.resource<ModelLibrary>();
+  if (lib.has('flame_card')) {
+    world.insert(Puffs(mountRack(world, 'puffs', () {
+      final puff = lib.instance('flame_card')..scale = Vector3.all(1.4);
+      setRenderLayer(puff, RenderLayers.actors);
+      return puff;
+    }, size: feedbackPuffPool)));
+  }
+  final texts = <Node, ValueNotifier<String>>{};
+  final rack = mountRack(world, 'words', () {
     final text = ValueNotifier('');
     final node = Node(name: 'word')
       ..layers = RenderLayers.actors
-      ..visible = false
       ..addComponent(
         WidgetComponent(
           child: ValueListenableBuilder<String>(
@@ -81,19 +82,8 @@ void _spawnWordPops(World world) {
           pixelRatio: 2,
         ),
       );
-    world.spawn([NodeRef(node), const Billboard()]);
-    slots.add(WordSlot(node, text));
-  }
-  world.insert(WordPops(slots));
-}
-
-/// Words rise and vanish.
-void _ageWordPops(World world) {
-  final dt = world.delta;
-  for (final slot in world.resource<WordPops>().slots) {
-    if (!slot.node.visible) continue;
-    slot.age += dt;
-    slot.node.position = slot.node.position + Vector3(0, 1.2 * dt, 0);
-    if (slot.age >= feedbackWordSeconds) slot.node.visible = false;
-  }
+    texts[node] = text;
+    return node;
+  }, size: feedbackWordPool);
+  world.insert(WordPops(rack, texts));
 }

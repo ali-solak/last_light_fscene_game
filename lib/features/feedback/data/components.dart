@@ -37,12 +37,11 @@ final class Fleeting(final Node node, final double seconds) {
   double rise = 0;
 }
 
-/// One pooled floating word.
-final class WordSlot(final Node node, final ValueNotifier<String> text) {
-  double age = 0;
-}
+/// The floating words: a rack of widget quads, and the text each shows.
+final class WordPops(
+  final NodeRack rack,
+  final Map<Node, ValueNotifier<String>> texts,
+);
 
-/// The pooled floating words (mounted once at startup).
-final class WordPops(final List<WordSlot> slots) {
-  int next = 0;
-}
+/// The snuffed-lamp puffs: a rack of flame cards.
+final class Puffs(final NodeRack rack);

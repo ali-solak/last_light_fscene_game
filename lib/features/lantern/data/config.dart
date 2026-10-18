@@ -19,6 +19,17 @@ const double lanternThrowAnimSeconds = 0.6;
 const double lanternSmashRadius = 3.4;
 const double lanternSmashAway = 3.5;
 
+/// Will-o'-Wisp: the wisp lasts this long and draws crabs this near; it
+/// hangs this high over the oil.
+const double lanternLureSeconds = 4;
+const double lanternLureRadius = 6;
+const double lanternLureHeight = 1.3;
+const int lanternLureRack = 3;
+
+/// Lit lamps kept ready to throw (one flies at a time; two covers a
+/// quick relight).
+const int lanternSpares = 2;
+
 /// Flare: hold the focus at least this long, and it costs this much oil.
 const double lanternFlareHold = 0.6;
 const double lanternFlareOil = 12;

@@ -69,6 +69,12 @@ void _burstParticles(World world) {
           ..burst(FxKind.flash, p, count: 1, size: 0.8)
           ..burst(FxKind.spark, p, count: 26, spread: 1.4,
               tint: Vector3(3.0, 3.0, 3.4));
+      case HarpoonTargetKind.flotsam:
+        fx
+          ..burst(FxKind.splinter, p, count: 3, spread: 1.0, size: 0.6)
+          ..burst(FxKind.droplet, p, count: 18, spread: 0.9,
+              tint: Vector3(0.45, 0.6, 0.75))
+          ..burst(FxKind.mist, p, count: 4, spread: 0.8, size: 0.7);
       case HarpoonTargetKind.prop:
         fx
           ..burst(FxKind.spark, p, count: 24, spread: 1.3)

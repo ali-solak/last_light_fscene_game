@@ -445,18 +445,18 @@ packages:
     dependency: "direct main"
     description:
       name: scene_dash_v2
-      sha256: "5bd49a50bcbef5a347cc48a22f7da274a17b9659e9c1a4709d52ce1cbcce85c6"
+      sha256: d21344ae5a6d31a0d0e625704c053da70ce02a400fb11e318e8ce42d70c61062
       url: "https://pub.dev"
     source: hosted
-    version: "0.6.0"
+    version: "0.6.1"
   scene_dash_v2_core:
     dependency: transitive
     description:
       name: scene_dash_v2_core
-      sha256: e515ddcf781098974c854459844d1caf80a053e30784cd26d6ff58493e887af2
+      sha256: bdccae86a09325b6718d80e4da020ac0c312e36b59dac5f46fd7062cfa7fbb5a
       url: "https://pub.dev"
     source: hosted
-    version: "0.6.0"
+    version: "0.6.1"
   shared_preferences:
     dependency: "direct main"
     description:

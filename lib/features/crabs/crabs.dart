@@ -31,7 +31,7 @@ import '../island/island.dart';
 import '../keeper/keeper.dart'
     show Keeper, KeeperBody, KeeperBrain, KeeperMode;
 import '../lamps/lamps.dart' show LampPost;
-import '../lantern/lantern.dart' show Lantern;
+import '../lantern/lantern.dart' show Lantern, Lure, lanternLureRadius;
 import '../light/light.dart' show LightExposure, LightFlags, LightMap;
 import '../mirrors/mirrors.dart' show Mirror;
 import '../nights/nights.dart' show Run;

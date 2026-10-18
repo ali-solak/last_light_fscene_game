@@ -7,7 +7,7 @@ void installHarpoonFire(GameBuilder game) {
       Schedules.fixedUpdate,
       _harpoonMachine,
       writes: {Harpoon},
-      reads: {KeeperBrain, KeeperBody, SceneTransform, Keeper, Mirror, Crab, CrabBody, Dead},
+      reads: {KeeperBrain, KeeperBody, SceneTransform, Keeper, Mirror, Crab, CrabBody, Dead, Flotsam},
       inSet: GameSets.weapons,
       runIf: inState(GameStatus.night),
     )
@@ -24,6 +24,7 @@ void installHarpoonFire(GameBuilder game) {
         Barbed,
         WhalersReel,
         Keeper,
+        Flotsam,
       },
       inSet: GameSets.weapons,
       after: [_harpoonMachine],
@@ -148,11 +149,16 @@ Vector3 _aimTarget(World world, Vector3 muzzle) {
     final t = raySphere(o, d, _hookPoint(m), harpoonHookRadius);
     if (t != null && t > skip && t < best) (best, hit) = (t, o + d * t);
   });
+  world.query2<Flotsam, SceneTransform>().each((_, _, f) {
+    final t = raySphere(o, d, flotsamCentre(f), flotsamHookRadius);
+    if (t != null && t > skip && t < best) (best, hit) = (t, o + d * t);
+  });
   return hit ?? assisted;
 }
 
-/// Aim assist: the crab or mirror hook nearest the aimed ground point, if
-/// one stands within [harpoonAimAssist] of it (plus a crab's half size).
+/// Aim assist: the crab, mirror hook or flotsam nearest the aimed ground
+/// point, if one is within [harpoonAimAssist] of it (plus a crab's half
+/// size, or a float's).
 Vector3? _assist(World world, Vector3 point) {
   Vector3? best;
   var bestD = double.infinity;
@@ -170,6 +176,11 @@ Vector3? _assist(World world, Vector3 point) {
     if (d <= harpoonAimAssist * harpoonAimAssist && d < bestD) {
       (best, bestD) = (_hookPoint(m), d);
     }
+  });
+  world.query2<Flotsam, SceneTransform>().each((_, _, f) {
+    final r = harpoonAimAssist + flotsamHookRadius;
+    final d = distSq2(f.x, f.z, point.x, point.z);
+    if (d <= r * r && d < bestD) (best, bestD) = (flotsamCentre(f), d);
   });
   return best;
 }
@@ -230,9 +241,15 @@ void _flyBolt(World world) {
       (mirror, mirrorT) = (entity, hit);
     }
   });
+  Entity? float;
+  var floatT = double.infinity;
+  world.query2<Flotsam, SceneTransform>().each((entity, _, f) {
+    final hit = raySphere(from, dir, flotsamCentre(f), flotsamHookRadius);
+    if (hit != null && hit <= reach && hit < floatT) (float, floatT) = (entity, hit);
+  });
   final wallT = _worldHit(world, from, dir, reach);
 
-  final firstT = [crabT, mirrorT, wallT].reduce(math.min);
+  final firstT = [crabT, mirrorT, floatT, wallT].reduce(math.min);
   if (firstT.isFinite) {
     final point = from + dir * firstT;
     if (firstT == crabT && crab != null) {
@@ -268,6 +285,15 @@ void _flyBolt(World world) {
         ..hooked = mirror
         ..hookKind = .mirror;
       world.emit(HarpoonHit(.mirror, mirror, point));
+      harpoon.mode.go(HarpoonMode.reeling);
+    } else if (firstT == floatT && float != null && harpoon.hooked == null) {
+      // Wreckage at sea: hooked, to be hauled ashore.
+      harpoon
+        ..hooked = float
+        ..hookKind = .flotsam;
+      world
+        ..add(float!, const Hooked())
+        ..emit(HarpoonHit(.flotsam, float, point));
       harpoon.mode.go(HarpoonMode.reeling);
     } else {
       world.emit(HarpoonHit(.prop, null, point));
@@ -333,7 +359,8 @@ double _worldHit(World world, Vector3 from, Vector3 dir, double reach) {
 }
 
 /// Reels in a speared crab, drags a hooked mirror (the mirrors feature
-/// turns it), or hauls the keeper (Whaler's Reel).
+/// turns it), hauls flotsam in (the wreckage feature beaches it), or hauls
+/// the keeper (Whaler's Reel).
 void _reel(World world) {
   final row = world.query2<Harpoon, SceneTransform>().having<Keeper>().firstOrNull;
   if (row == null) return;
@@ -345,7 +372,9 @@ void _reel(World world) {
 
   void done() {
     final hooked = harpoon.hooked;
-    if (hooked != null && harpoon.hookKind == .crab) {
+    if (hooked != null &&
+        (harpoon.hookKind == .crab || harpoon.hookKind == .flotsam) &&
+        world.isAlive(hooked)) {
       world.remove<Hooked>(hooked);
     }
     harpoon
@@ -375,6 +404,18 @@ void _reel(World world) {
         ..x += dx / d * step
         ..z += dz / d * step;
       harpoon.bolt.setValues(c.x, c.y + 0.3, c.z);
+    case .flotsam:
+      final target = harpoon.hooked;
+      final f = target == null ? null : world.tryGet<SceneTransform>(target);
+      if (f == null || release || elapsed >= harpoonHaulSeconds) return done();
+      final dx = k.x - f.x, dz = k.z - f.z;
+      final d = math.sqrt(dx * dx + dz * dz);
+      if (d <= harpoonReelRelease) return done();
+      final step = math.min(harpoonHaulSpeed * world.dt, d - harpoonReelRelease);
+      f
+        ..x += dx / d * step
+        ..z += dz / d * step;
+      harpoon.bolt.setFrom(flotsamCentre(f));
     case .mirror:
       if (release || elapsed >= harpoonMirrorReelSeconds) done();
     case .prop:

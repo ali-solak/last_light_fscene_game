@@ -49,6 +49,10 @@ const double feedbackShellPieceSeconds = 12;
 const double feedbackPuffSeconds = 1.0;
 const double feedbackWordSeconds = 0.8;
 const int feedbackWordPool = 4;
+const int feedbackPuffPool = 6;
+
+/// Words rise this fast (m/s).
+const double feedbackWordRise = 1.2;
 
 /// A lamp strike: hit-stop (longer on an exposed crab), trauma, kick.
 const double feedbackBashFreeze = 0.04;
